@@ -1,0 +1,31 @@
+import { defineStore } from 'pinia'
+import { computed } from 'vue'
+import type { Achievement } from '@/types/achievement'
+import { useMarkerStore } from './useMarkerStore'
+import { useTaskStore } from './useTaskStore'
+
+export const useAchievementStore = defineStore('achievements', () => {
+  function getAchievements(): Achievement[] {
+    const markerStore = useMarkerStore()
+    const taskStore = useTaskStore()
+    const done = markerStore.checkedMarkers
+    const photo = done.filter(m => m.photoPath)
+    const userCreated = Math.max(0, markerStore.totalCount - 8)
+
+    return [
+      { id: 'first',   icon: '🥾', name: '初探者',  desc: '完成首次打卡',    unlocked: done.length >= 1 },
+      { id: 'three',   icon: '🗺️', name: '探索者',   desc: '打卡 3 个地点',   unlocked: done.length >= 3 },
+      { id: 'five',    icon: '🏔️', name: '冒险家',   desc: '打卡 5 个地点',   unlocked: done.length >= 5 },
+      { id: 'ten',     icon: '🌟', name: '传奇旅人', desc: '打卡 10 个地点',  unlocked: done.length >= 10 },
+      { id: 'photo',   icon: '📸', name: '摄影师',   desc: '3 次带照片打卡',  unlocked: photo.length >= 3 },
+      { id: 'create',  icon: '📍', name: '创建者',   desc: '创建 5 个打卡点', unlocked: userCreated >= 5 },
+      { id: 'alltask', icon: '🎯', name: '全勤达人', desc: '完成所有任务',
+        unlocked: taskStore.totalTaskCount > 0 && taskStore.completedTaskCount === taskStore.totalTaskCount },
+    ]
+  }
+
+  const achievements = computed(() => getAchievements())
+  const unlockedCount = computed(() => achievements.value.filter(a => a.unlocked).length)
+
+  return { achievements, unlockedCount }
+})

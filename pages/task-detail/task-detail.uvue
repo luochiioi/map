@@ -1,31 +1,259 @@
 <template>
-  <view class="placeholder-page">
-    <text class="placeholder-title">任务详情</text>
-    <text class="placeholder-desc">任务详情将在会话 6 中实现</text>
-  </view>
+  <scroll-view class="detail-page" scroll-y>
+    <view v-if="task" class="content">
+      <!-- Task hero -->
+      <view class="task-hero" :class="task.status === 'completed' ? 'done' : 'pending'">
+        <text class="task-status-icon">{{ task.status === 'completed' ? '✅' : '⏳' }}</text>
+        <text class="task-name">{{ task.name }}</text>
+        <text class="task-desc">{{ task.description }}</text>
+        <text class="task-reward">🎁 {{ task.reward }}</text>
+      </view>
+
+      <!-- Linked marker -->
+      <view class="section">
+        <text class="section-title">关联打卡点</text>
+        <view class="linked-marker" v-if="linkedMarker">
+          <view class="marker-status-dot" :class="linkedMarker.checked ? 'done' : 'pending'"></view>
+          <view class="marker-info">
+            <text class="marker-title">{{ linkedMarker.title }}</text>
+            <text class="marker-coords">
+              {{ linkedMarker.latitude.toFixed(4) }}, {{ linkedMarker.longitude.toFixed(4) }}
+            </text>
+          </view>
+          <view class="marker-action">
+            <text class="go-btn" @click="goToMarker">前往打卡</text>
+          </view>
+        </view>
+        <view v-else class="not-found">
+          <text>未找到关联打卡点</text>
+        </view>
+      </view>
+
+      <!-- Status info -->
+      <view class="section">
+        <text class="section-title">状态</text>
+        <view class="info-row">
+          <text class="info-label">任务状态</text>
+          <text class="info-value" :class="task.status === 'completed' ? 'done' : 'pending'">
+            {{ task.status === 'completed' ? '已完成' : '待完成' }}
+          </text>
+        </view>
+        <view class="info-row" v-if="task.completedAt">
+          <text class="info-label">完成时间</text>
+          <text class="info-value">{{ formatDateTime(task.completedAt) }}</text>
+        </view>
+      </view>
+    </view>
+
+    <view v-else class="empty">
+      <text class="empty-icon">📋</text>
+      <text class="empty-text">任务不存在</text>
+    </view>
+  </scroll-view>
 </template>
 
 <script setup lang="uts">
+import { ref, computed, onShow } from 'vue'
+import { useTaskStore } from '@/stores/useTaskStore'
+import { useMarkerStore } from '@/stores/useMarkerStore'
+import { useMapStore } from '@/stores/useMapStore'
+import { formatDateTime } from '@/utils/format'
+
+const taskStore = useTaskStore()
+const markerStore = useMarkerStore()
+const mapStore = useMapStore()
+
+const taskId = ref<string>('')
+
+const task = computed(() => taskStore.findTaskById(taskId.value))
+
+const linkedMarker = computed(() => {
+  if (!task.value) return null
+  return markerStore.findByTitle(task.value.targetTitle) ?? markerStore.findById(task.value.targetMarkerId)
+})
+
+onShow((): void => {
+  const pages = getCurrentPages()
+  const currentPage = pages[pages.length - 1] as any
+  const query = currentPage?.$page?.options ?? {}
+  taskId.value = query.id ?? ''
+
+  taskStore.loadFromStorage()
+  markerStore.loadFromStorage()
+})
+
+function goToMarker(): void {
+  if (!linkedMarker.value) return
+  mapStore.requestFocus(linkedMarker.value)
+  uni.navigateBack()
+}
 </script>
 
 <style>
-.placeholder-page {
+.detail-page {
   flex: 1;
+  background-color: #f5f7f5;
+  min-height: 100vh;
+}
+
+.content {
+  padding: 0;
+}
+
+/* Task hero */
+.task-hero {
+  padding: 48rpx 32rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 60rpx;
-  background-color: #f8f8f8;
+  gap: 12rpx;
 }
-.placeholder-title {
+
+.task-hero.done {
+  background: linear-gradient(135deg, #e6f9ed, #d0f5d0);
+}
+
+.task-hero.pending {
+  background: linear-gradient(135deg, #fff8e1, #fff3cd);
+}
+
+.task-status-icon {
+  font-size: 56rpx;
+}
+
+.task-name {
   font-size: 40rpx;
   font-weight: bold;
-  color: #2ecc71;
-  margin-bottom: 20rpx;
+  color: #1a1a1a;
 }
-.placeholder-desc {
+
+.task-desc {
+  font-size: 26rpx;
+  color: #666666;
+  text-align: center;
+}
+
+.task-reward {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #f39c12;
+  margin-top: 8rpx;
+}
+
+/* Sections */
+.section {
+  padding: 24rpx 32rpx;
+  background-color: #ffffff;
+  margin-top: 16rpx;
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #1a1a1a;
+  margin-bottom: 16rpx;
+}
+
+/* Linked marker */
+.linked-marker {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  background-color: #f8f8f8;
+  border-radius: 12rpx;
+  padding: 20rpx;
+}
+
+.marker-status-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 8rpx;
+}
+
+.marker-status-dot.done { background-color: #2ecc71; }
+.marker-status-dot.pending { background-color: #f39c12; }
+
+.marker-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.marker-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.marker-coords {
+  font-size: 22rpx;
+  color: #999999;
+  font-family: monospace;
+}
+
+.go-btn {
+  font-size: 28rpx;
+  color: #ffffff;
+  background-color: #2ecc71;
+  padding: 12rpx 28rpx;
+  border-radius: 24rpx;
+}
+
+.not-found {
+  padding: 20rpx;
+}
+
+.not-found text {
   font-size: 26rpx;
   color: #999999;
+}
+
+/* Info rows */
+.info-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.info-label {
+  font-size: 26rpx;
+  color: #888888;
+}
+
+.info-value {
+  font-size: 26rpx;
+  color: #333333;
+}
+
+.info-value.done {
+  color: #2ecc71;
+  font-weight: 500;
+}
+
+.info-value.pending {
+  color: #f39c12;
+  font-weight: 500;
+}
+
+/* Empty */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120rpx 0;
+}
+
+.empty-icon {
+  font-size: 72rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: #999999;
+  margin-top: 16rpx;
 }
 </style>
