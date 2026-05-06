@@ -1,0 +1,43 @@
+// 用户类型
+// 字段对应 uniCloud users 集合 + uni-id token payload
+// 角色用于云端权限校验（schema 中 auth.role == 'admin' 等条件）
+export type UserRole =
+  | 'admin'   // 后台管理员（创建/编辑/删除全部资源）
+  | 'user'    // 普通用户（自己创建的可改，他人的只读）
+  // | 'editor'  // 预留：内容运营（可审 marker / task）— 启用前同步更新 schema 权限规则
+
+export type User = {
+  userId: string                  // 关联 uni-id 的 uid
+  username: string                // 登录用户名
+  nickname: string                // 昵称
+  avatar: string | null           // 头像云存储 URL
+  role: UserRole
+  totalCheckins: number           // 累计打卡次数
+  totalPhotos: number             // 累计带照片打卡数
+  totalCreated: number            // 累计创建打卡点数
+  createdAt: number               // 注册时间戳（毫秒）
+}
+
+// 登录 / 注册 表单
+export type LoginInput = {
+  username: string
+  password: string
+}
+
+export type SignUpInput = {
+  username: string
+  password: string
+  nickname: string
+}
+
+// 鉴权状态（前端持久化用）
+export type AuthState = {
+  token: string | null
+  tokenExpired: number            // 过期时间戳（毫秒），0 = 未登录
+  currentUser: User | null
+}
+
+// 角色守卫工具
+export function isAdmin(user: User | null): boolean {
+  return user != null && user.role === 'admin'
+}

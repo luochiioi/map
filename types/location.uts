@@ -1,0 +1,10 @@
+// GPS 定位数据
+export type LocationData = {
+  latitude: number
+  longitude: number
+  accuracy: number   // GPS 精度（米），0 表示未知
+}
+
+// 精度分级：
+// good: < 30m, mid: 30-100m, bad: > 100m, unknown: <= 0
+export type AccuracyLevel = 'unknown' | 'good' | 'mid' | 'bad'

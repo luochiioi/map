@@ -1,0 +1,34 @@
+// 打卡点（Marker）类型
+// 既用于本地存储（tourism_markers 键），也用于 uniCloud tourism_markers 集合
+export type Marker = {
+  id: number              // 唯一 ID（新标记用 Date.now()）
+  _id: string             // 字符串 ID（uniCloud 主键 / 兼容旧数据）
+  title: string           // 打卡点名称
+  latitude: number        // GCJ-02 纬度
+  longitude: number       // GCJ-02 经度
+  checked: boolean        // 是否已打卡
+  width: number           // 标记宽度（默认 36）
+  height: number          // 标记高度（默认 36）
+  iconPath: string        // 标记图标路径（本地静态资源）
+  checkedAt: number | null    // 打卡时间戳（毫秒）
+  photoPath: string | null    // 打卡照片本地路径
+  photoCloudURL: string | null // 打卡照片云端 URL（云对象上传后回填）
+  note: string | null         // 打卡备注（最多 200 字）
+  createdAt: number       // 创建时间戳（毫秒）
+  createdBy: string | null    // 创建者 userId（关联 uni-id 的 uid）
+}
+
+export type NewMarkerInput = {
+  title: string
+  latitude: number
+  longitude: number
+}
+
+export type MarkerLabel = {
+  content: string
+  color: string
+  fontSize: number
+  borderRadius: number
+  bgColor: string
+  padding: number
+}

@@ -1,0 +1,127 @@
+// 本地存储封装（Android SharedPreferences）
+// UTS 中显式 JSON 序列化更稳定，避免 setStorageSync 的隐式类型推断
+// 每个资源一组 load/save，比泛型 getJSON<T> 在 UTS→Kotlin 编译期更可靠
+import type { Marker } from '@/types/marker'
+import type { Task, Reward } from '@/types/task'
+import type { User } from '@/types/user'
+
+// ===== 通用底层 =====
+
+function readString(key: string): string | null {
+  const raw = uni.getStorageSync(key) as any
+  if (raw == null) return null
+  if (typeof raw === 'string') {
+    return (raw as string).length === 0 ? null : (raw as string)
+  }
+  // 兼容老数据：被框架自动序列化的对象
+  return JSON.stringify(raw)
+}
+
+function writeString(key: string, value: string): void {
+  uni.setStorageSync(key, value)
+}
+
+export function removeKey(key: string): void {
+  uni.removeStorageSync(key)
+}
+
+// ===== Markers =====
+
+const KEY_MARKERS = 'tourism_markers'
+
+export function loadMarkers(): Marker[] {
+  const raw = readString(KEY_MARKERS)
+  if (raw == null) return [] as Marker[]
+  try {
+    return JSON.parse(raw) as Marker[]
+  } catch (e) {
+    console.error('loadMarkers parse fail', e)
+    return [] as Marker[]
+  }
+}
+
+export function saveMarkers(markers: Marker[]): void {
+  writeString(KEY_MARKERS, JSON.stringify(markers))
+}
+
+// ===== Tasks =====
+
+const KEY_TASKS = 'task_list'
+const KEY_USER_TASKS = 'user_tasks'
+
+export function loadTasks(): Task[] {
+  const raw = readString(KEY_TASKS)
+  if (raw == null) return [] as Task[]
+  try {
+    return JSON.parse(raw) as Task[]
+  } catch (e) {
+    console.error('loadTasks parse fail', e)
+    return [] as Task[]
+  }
+}
+
+export function saveTasks(tasks: Task[]): void {
+  writeString(KEY_TASKS, JSON.stringify(tasks))
+}
+
+export type UserTaskProgress = {
+  status: string         // 'pending' | 'completed'
+  completedAt: number    // 0 = 未完成
+}
+
+export function loadUserTasks(): Map<string, UserTaskProgress> {
+  const raw = readString(KEY_USER_TASKS)
+  const m = new Map<string, UserTaskProgress>()
+  if (raw == null) return m
+  try {
+    return JSON.parse(raw) as Map<string, UserTaskProgress>
+  } catch (e) {
+    console.error('loadUserTasks parse fail', e)
+    return m
+  }
+}
+
+export function saveUserTasks(ut: Map<string, UserTaskProgress>): void {
+  writeString(KEY_USER_TASKS, JSON.stringify(ut))
+}
+
+// ===== Rewards =====
+
+const KEY_REWARDS = 'rewards'
+
+export function loadRewards(): Reward[] {
+  const raw = readString(KEY_REWARDS)
+  if (raw == null) return [] as Reward[]
+  try {
+    return JSON.parse(raw) as Reward[]
+  } catch (e) {
+    console.error('loadRewards parse fail', e)
+    return [] as Reward[]
+  }
+}
+
+export function saveRewards(rewards: Reward[]): void {
+  writeString(KEY_REWARDS, JSON.stringify(rewards))
+}
+
+// ===== 认证（与 uni-id 配合，仅缓存当前用户快照）=====
+
+const KEY_AUTH_USER = 'auth_user'
+
+export function loadAuthUser(): User | null {
+  const raw = readString(KEY_AUTH_USER)
+  if (raw == null) return null
+  try {
+    return JSON.parse(raw) as User
+  } catch (e) {
+    return null
+  }
+}
+
+export function saveAuthUser(user: User | null): void {
+  if (user == null) {
+    removeKey(KEY_AUTH_USER)
+    return
+  }
+  writeString(KEY_AUTH_USER, JSON.stringify(user))
+}

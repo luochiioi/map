@@ -1,0 +1,83 @@
+// 坐标系转换 + 距离计算
+// 从原始 utils/coordinate.js 移植，UTS 类型化版本
+// 接口契约：返回对象 { lng, lat }（UTS 不擅长元组），原始返回 [lng, lat]
+
+const PI = Math.PI
+const AXIS = 6378245.0          // 长半轴
+const OFFSET = 0.00669342162296594323  // 偏心率平方
+
+export type LngLat = {
+  lng: number
+  lat: number
+}
+
+function isOutOfChina(lng: number, lat: number): boolean {
+  return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271
+}
+
+function transformLng(x: number, y: number): number {
+  let ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x))
+  ret += (20.0 * Math.sin(6.0 * x * PI) + 20.0 * Math.sin(2.0 * x * PI)) * 2.0 / 3.0
+  ret += (20.0 * Math.sin(x * PI) + 40.0 * Math.sin(x / 3.0 * PI)) * 2.0 / 3.0
+  ret += (150.0 * Math.sin(x / 12.0 * PI) + 300.0 * Math.sin(x / 30.0 * PI)) * 2.0 / 3.0
+  return ret
+}
+
+function transformLat(x: number, y: number): number {
+  let ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x))
+  ret += (20.0 * Math.sin(6.0 * x * PI) + 20.0 * Math.sin(2.0 * x * PI)) * 2.0 / 3.0
+  ret += (20.0 * Math.sin(y * PI) + 40.0 * Math.sin(y / 3.0 * PI)) * 2.0 / 3.0
+  ret += (160.0 * Math.sin(y / 12.0 * PI) + 320 * Math.sin(y * PI / 30.0)) * 2.0 / 3.0
+  return ret
+}
+
+// WGS-84 → GCJ-02
+export function wgs84ToGcj02(lng: number, lat: number): LngLat {
+  if (isOutOfChina(lng, lat)) {
+    return { lng: lng, lat: lat } as LngLat
+  }
+  let dLat = transformLat(lng - 105.0, lat - 35.0)
+  let dLng = transformLng(lng - 105.0, lat - 35.0)
+  const radLat = lat / 180.0 * PI
+  let magic = Math.sin(radLat)
+  magic = 1 - OFFSET * magic * magic
+  const sqrtMagic = Math.sqrt(magic)
+  dLat = (dLat * 180.0) / ((AXIS * (1 - OFFSET)) / (magic * sqrtMagic) * PI)
+  dLng = (dLng * 180.0) / (AXIS / sqrtMagic * Math.cos(radLat) * PI)
+  return { lng: lng + dLng, lat: lat + dLat } as LngLat
+}
+
+// GCJ-02 → WGS-84（一次反算近似）
+export function gcj02ToWgs84(lng: number, lat: number): LngLat {
+  if (isOutOfChina(lng, lat)) {
+    return { lng: lng, lat: lat } as LngLat
+  }
+  let dLat = transformLat(lng - 105.0, lat - 35.0)
+  let dLng = transformLng(lng - 105.0, lat - 35.0)
+  const radLat = lat / 180.0 * PI
+  let magic = Math.sin(radLat)
+  magic = 1 - OFFSET * magic * magic
+  const sqrtMagic = Math.sqrt(magic)
+  dLat = (dLat * 180.0) / ((AXIS * (1 - OFFSET)) / (magic * sqrtMagic) * PI)
+  dLng = (dLng * 180.0) / (AXIS / sqrtMagic * Math.cos(radLat) * PI)
+  return { lng: lng * 2 - (lng + dLng), lat: lat * 2 - (lat + dLat) } as LngLat
+}
+
+// Haversine：返回米（整数）
+export function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371e3
+  const phi1 = lat1 * PI / 180
+  const phi2 = lat2 * PI / 180
+  const dPhi = (lat2 - lat1) * PI / 180
+  const dLambda = (lng2 - lng1) * PI / 180
+  const sinDphi2 = Math.sin(dPhi / 2)
+  const sinDlambda2 = Math.sin(dLambda / 2)
+  const a = sinDphi2 * sinDphi2 + Math.cos(phi1) * Math.cos(phi2) * sinDlambda2 * sinDlambda2
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return Math.round(R * c)
+}
+
+// 与 calculateDistance 等价（兼容原始 API 名）
+export function calculateDistanceWithAccuracy(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  return calculateDistance(lat1, lng1, lat2, lng2)
+}

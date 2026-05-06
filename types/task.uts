@@ -1,0 +1,25 @@
+// 任务与奖励类型
+// Task 持久化于 task_list（本地）+ tourism_tasks（云端）
+// Reward 持久化于 rewards（本地）+ rewards（云端）
+export type TaskStatus = 'pending' | 'completed'
+
+export type Task = {
+  id: string                    // 如 'task_001'
+  name: string                  // 任务名称
+  description: string           // 任务描述
+  targetTitle: string           // 目标打卡点名称（用于匹配）
+  targetMarkerId: number        // 目标打卡点 ID（优先匹配）
+  reward: string                // 奖励描述（如 '10 积分'）
+  status: TaskStatus
+  completedAt: number | null    // 完成时间戳（毫秒）
+  userId: string | null         // 关联 uni-id 用户 uid（云端进度归属）
+}
+
+export type Reward = {
+  id: string                    // 唯一奖励 ID
+  taskId: string
+  taskName: string
+  reward: string
+  earnedAt: number              // 获得时间戳（毫秒）
+  userId: string | null
+}

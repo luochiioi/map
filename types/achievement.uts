@@ -1,0 +1,18 @@
+// 成就徽章类型
+// 不持久化：unlocked 由 marker / task 计数动态计算
+export type AchievementId =
+  | 'first'    // 首次打卡
+  | 'three'    // 累计 3 次
+  | 'five'     // 累计 5 次
+  | 'ten'      // 累计 10 次
+  | 'photo'    // 首次带照片打卡
+  | 'create'   // 首次创建打卡点
+  | 'alltask'  // 完成全部任务
+
+export type Achievement = {
+  id: AchievementId
+  icon: string     // 表情符号
+  name: string     // 中文名称
+  desc: string     // 解锁描述
+  unlocked: boolean
+}

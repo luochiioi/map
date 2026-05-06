@@ -1,0 +1,35 @@
+// 日期/距离/坐标格式化
+// 从原始 utils/index.js 的 formatDateTime / formatDistance 移植
+
+export function formatDateTime(ts: number): string {
+  const d = new Date(ts)
+  const pad = (n: number): string => {
+    return n < 10 ? '0' + n : '' + n
+  }
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+    + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes())
+}
+
+export function formatDate(ts: number): string {
+  const d = new Date(ts)
+  const pad = (n: number): string => {
+    return n < 10 ? '0' + n : '' + n
+  }
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+}
+
+// 米/千米友好显示
+export function formatDistance(val: number): string {
+  if (val < 1000) {
+    return Math.round(val) + 'm'
+  }
+  return (val / 1000).toFixed(2) + 'km'
+}
+
+// 经纬度展示（默认 6 位）
+export function formatCoordinate(val: number | null, precision: number = 6): string {
+  if (val == null) {
+    return '--'
+  }
+  return (val as number).toFixed(precision)
+}

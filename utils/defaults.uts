@@ -1,0 +1,30 @@
+// 默认数据：初次启动 / 本地存储为空时的种子
+// 从原始 utils/index.js 与 utils/tasks.js 移植
+// 注：当前 8 个点是通用样本，澳门 + 长沙双城专属点位将在会话 2 通过云端 marker-center 写入
+import type { Marker } from '@/types/marker'
+import type { Task } from '@/types/task'
+
+export function getDefaultMarkers(): Marker[] {
+  const now = Date.now()
+  return [
+    { id: 1, _id: '1', title: '北京故宫', latitude: 39.9163, longitude: 116.3972, checked: false, width: 36, height: 36, iconPath: '/static/marker_default.png', checkedAt: null, photoPath: null, photoCloudURL: null, note: null, createdAt: now, createdBy: null } as Marker,
+    { id: 2, _id: '2', title: '上海迪士尼', latitude: 31.1465, longitude: 121.6593, checked: false, width: 36, height: 36, iconPath: '/static/marker_default.png', checkedAt: null, photoPath: null, photoCloudURL: null, note: null, createdAt: now, createdBy: null } as Marker,
+    { id: 3, _id: '3', title: '长沙岳麓书院', latitude: 28.1836, longitude: 112.9388, checked: false, width: 36, height: 36, iconPath: '/static/marker_default.png', checkedAt: null, photoPath: null, photoCloudURL: null, note: null, createdAt: now, createdBy: null } as Marker,
+    { id: 4, _id: '4', title: '澳门大三巴', latitude: 22.1979, longitude: 113.5413, checked: false, width: 36, height: 36, iconPath: '/static/marker_default.png', checkedAt: null, photoPath: null, photoCloudURL: null, note: null, createdAt: now, createdBy: null } as Marker,
+    { id: 5, _id: '5', title: '长沙橘子洲', latitude: 28.1968, longitude: 112.9625, checked: false, width: 36, height: 36, iconPath: '/static/marker_default.png', checkedAt: null, photoPath: null, photoCloudURL: null, note: null, createdAt: now, createdBy: null } as Marker,
+    { id: 6, _id: '6', title: '广州塔', latitude: 23.1065, longitude: 113.3246, checked: false, width: 36, height: 36, iconPath: '/static/marker_default.png', checkedAt: null, photoPath: null, photoCloudURL: null, note: null, createdAt: now, createdBy: null } as Marker,
+    { id: 7, _id: '7', title: '中山大学东校区', latitude: 23.0622, longitude: 113.3894, checked: false, width: 36, height: 36, iconPath: '/static/marker_default.png', checkedAt: null, photoPath: null, photoCloudURL: null, note: null, createdAt: now, createdBy: null } as Marker,
+    { id: 8, _id: '8', title: '北京交通大学', latitude: 39.9505, longitude: 116.3474, checked: false, width: 36, height: 36, iconPath: '/static/marker_default.png', checkedAt: null, photoPath: null, photoCloudURL: null, note: null, createdAt: now, createdBy: null } as Marker,
+  ] as Marker[]
+}
+
+export function getDefaultTasks(): Task[] {
+  return [
+    { id: 'task_001', name: '故宫探索者',     description: '打卡北京故宫',         targetTitle: '北京故宫',     targetMarkerId: 1, reward: '10 积分', status: 'pending', completedAt: null, userId: null } as Task,
+    { id: 'task_002', name: '魔都奇遇',       description: '打卡上海迪士尼乐园',   targetTitle: '上海迪士尼',   targetMarkerId: 2, reward: '15 积分', status: 'pending', completedAt: null, userId: null } as Task,
+    { id: 'task_003', name: '湖湘文化之旅',   description: '打卡长沙岳麓书院',     targetTitle: '长沙岳麓书院', targetMarkerId: 3, reward: '12 积分', status: 'pending', completedAt: null, userId: null } as Task,
+    { id: 'task_004', name: '澳门印象',       description: '打卡澳门大三巴牌坊',   targetTitle: '澳门大三巴',   targetMarkerId: 4, reward: '12 积分', status: 'pending', completedAt: null, userId: null } as Task,
+    { id: 'task_005', name: '橘洲打卡',       description: '打卡长沙橘子洲头',     targetTitle: '长沙橘子洲',   targetMarkerId: 5, reward: '10 积分', status: 'pending', completedAt: null, userId: null } as Task,
+    { id: 'task_006', name: '广州塔挑战',     description: '登顶广州塔打卡',       targetTitle: '广州塔',       targetMarkerId: 6, reward: '10 积分', status: 'pending', completedAt: null, userId: null } as Task,
+  ] as Task[]
+}

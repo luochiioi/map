@@ -1,0 +1,14 @@
+// 通用 UI 类型
+export type FilterMode = 'all' | 'pending' | 'done'
+
+export type FilterOption = {
+  key: FilterMode
+  label: string
+}
+
+// API 响应统一信封（前后端约定）
+export type ApiResult<T> = {
+  errCode: number          // 0 表示成功
+  errMsg: string | null
+  data: T | null
+}
