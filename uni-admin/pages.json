@@ -1,0 +1,51 @@
+{
+  "pages": [
+    {
+      "path": "pages/dashboard/index",
+      "style": {
+        "navigationBarTitleText": "仪表盘"
+      }
+    },
+    {
+      "path": "pages/markers/index",
+      "style": {
+        "navigationBarTitleText": "打卡点管理"
+      }
+    },
+    {
+      "path": "pages/checkins/index",
+      "style": {
+        "navigationBarTitleText": "打卡记录"
+      }
+    },
+    {
+      "path": "pages/users/index",
+      "style": {
+        "navigationBarTitleText": "用户管理"
+      }
+    },
+    {
+      "path": "pages/tasks/index",
+      "style": {
+        "navigationBarTitleText": "任务管理"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F5F5F5"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#2ecc71",
+    "backgroundColor": "#FFFFFF",
+    "list": [
+      { "pagePath": "pages/dashboard/index", "text": "仪表盘" },
+      { "pagePath": "pages/markers/index", "text": "打卡点" },
+      { "pagePath": "pages/checkins/index", "text": "记录" },
+      { "pagePath": "pages/users/index", "text": "用户" },
+      { "pagePath": "pages/tasks/index", "text": "任务" }
+    ]
+  }
+}
