@@ -1,6 +1,7 @@
 <script setup lang="uts">
   import { state, checkSystemTheme, setSafeArea, setStatusBarHeight, setDevicePixelRatio } from '@/store/index.uts'
   import { clearUserInfo } from '@/user/index.uts'
+  import { flushSyncQueue, syncMarkers, pendingCount } from '@/utils/cloudSync'
 
   onLaunch((res: OnLaunchOptions) => {
     console.log('App Launch', res.path)
@@ -52,11 +53,26 @@
       clearUserInfo()
       return
     }
-    verifyLogin()
+    verifyLogin().then(() => {
+      // Pull latest cloud data after successful login
+      syncMarkers().catch(() => {})
+    })
   })
 
   onShow((_res: OnShowOptions) => {
     console.log('App Show')
+
+    // Flush offline queue when returning from background
+    const count = pendingCount()
+    if (count > 0) {
+      console.log('Flushing', count, 'pending sync items...')
+      flushSyncQueue().then((flushed) => {
+        if (flushed > 0) {
+          // Re-sync markers after flushing checkins
+          syncMarkers().catch(() => {})
+        }
+      }).catch(() => {})
+    }
   })
 
   onHide(() => {

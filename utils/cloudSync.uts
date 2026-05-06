@@ -1,7 +1,11 @@
-// 云端同步：离线队列 + 批量推送
+// 云端同步：离线队列 + 批量推送 + 数据合并
+import type { Marker } from '@/types/marker'
+import { loadMarkers, saveMarkers } from '@/utils/storage'
 
 const KEY_SYNC_QUEUE = 'sync_queue'
+const KEY_LAST_SYNC = 'last_cloud_sync'
 const MAX_RETRIES = 4
+const RETRY_DELAY_BASE = 2000  // base delay in ms, doubles each retry
 
 type QueueItem = {
   id: string
@@ -10,6 +14,8 @@ type QueueItem = {
   createdAt: number
   retries: number
 }
+
+// ===== Queue I/O =====
 
 function readQueue(): QueueItem[] {
   try {
@@ -26,13 +32,36 @@ function readQueue(): QueueItem[] {
 }
 
 function writeQueue(queue: QueueItem[]): void {
-  uni.setStorageSync(KEY_SYNC_QUEUE, JSON.stringify(queue))
+  if (queue.length === 0) {
+    uni.removeStorageSync(KEY_SYNC_QUEUE)
+  } else {
+    uni.setStorageSync(KEY_SYNC_QUEUE, JSON.stringify(queue))
+  }
 }
 
-// Enqueue an action that failed to sync to cloud
-// action: 'checkin' | 'add_marker' | 'task_complete'
+// ===== Sync time tracking =====
+
+export function getLastSyncTime(): number {
+  return (uni.getStorageSync(KEY_LAST_SYNC) as number) ?? 0
+}
+
+function setLastSyncTime(ts: number): void {
+  uni.setStorageSync(KEY_LAST_SYNC, ts)
+}
+
+// ===== Enqueue =====
+
 export function enqueueAction(action: string, payload: Record<string, any>): void {
   const queue = readQueue()
+  // Deduplicate: skip if an identical pending item already exists
+  const isDuplicate = queue.some(
+    q => q.action === action && JSON.stringify(q.payload) === JSON.stringify(payload)
+  )
+  if (isDuplicate) {
+    console.log('[cloudSync] duplicate skipped:', action)
+    return
+  }
+
   queue.push({
     id: 'sync_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
     action: action,
@@ -48,15 +77,23 @@ export function pendingCount(): number {
   return readQueue().length
 }
 
-// Flush all queued actions to cloud objects
+// ===== Flush with backoff =====
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
 export async function flushSyncQueue(): Promise<number> {
   const queue = readQueue()
   if (queue.length === 0) return 0
 
+  console.log('[cloudSync] flushing', queue.length, 'items...')
+
   let flushed = 0
   const remaining: QueueItem[] = []
 
-  for (const item of queue) {
+  for (let i = 0; i < queue.length; i++) {
+    const item = queue[i]
     try {
       if (item.action === 'checkin') {
         const markerApi = uniCloud.importObject('marker-center')
@@ -65,13 +102,18 @@ export async function flushSyncQueue(): Promise<number> {
         const markerApi = uniCloud.importObject('marker-center')
         await markerApi.add(item.payload)
       } else if (item.action === 'task_complete') {
-        // tasks handled server-side in marker-center.checkin
+        // tasks are handled server-side via marker-center.checkin
       }
       flushed++
+      console.log('[cloudSync] flushed:', item.id, item.action)
     } catch (e) {
       item.retries++
       if (item.retries <= MAX_RETRIES) {
         remaining.push(item)
+        // Exponential backoff between retries
+        const backoff = RETRY_DELAY_BASE * Math.pow(2, item.retries - 1)
+        console.log('[cloudSync] retry', item.retries, 'for', item.id, 'after', backoff, 'ms')
+        await delay(backoff)
       } else {
         console.log('[cloudSync] dropped after max retries:', item.id, item.action)
       }
@@ -79,11 +121,13 @@ export async function flushSyncQueue(): Promise<number> {
   }
 
   writeQueue(remaining)
+  setLastSyncTime(Date.now())
   console.log('[cloudSync] flush done: flushed=' + flushed + ' remaining=' + remaining.length)
   return flushed
 }
 
-// Pull markers from cloud
+// ===== Pull markers from cloud =====
+
 export async function pullMarkers(): Promise<UTSJSONObject[]> {
   try {
     const markerApi = uniCloud.importObject('marker-center')
@@ -95,6 +139,98 @@ export async function pullMarkers(): Promise<UTSJSONObject[]> {
     return []
   } catch (e) {
     console.log('[cloudSync] pullMarkers failed', e)
+    return []
+  }
+}
+
+// ===== Sync markers: pull cloud + merge with local =====
+
+export async function syncMarkers(): Promise<Marker[]> {
+  const localMarkers = loadMarkers()
+  const cloudData = await pullMarkers()
+
+  if (cloudData.length === 0) {
+    console.log('[cloudSync] syncMarkers: no cloud data, keeping local')
+    return localMarkers
+  }
+
+  const merged = new Map<number, Marker>()
+  const now = Date.now()
+
+  // Index local markers by id
+  for (const m of localMarkers) {
+    merged.set(m.id, m)
+  }
+
+  // Merge cloud markers
+  for (const raw of cloudData) {
+    const jsonStr = JSON.stringify(raw)
+    const cloudMarker = JSON.parse<Marker>(jsonStr)
+    const local = merged.get(cloudMarker.id)
+
+    if (!local) {
+      // New cloud marker not in local: add it
+      merged.set(cloudMarker.id, cloudMarker)
+    } else {
+      // Both exist: merge strategy
+      // Cloud checkin data takes priority (checkedBy from other users)
+      if (cloudMarker.checked) {
+        local.checked = true
+        // Merge checkedBy entries from cloud (multi-user support)
+        // Keep local checkin time if it exists
+        if (!local.checkedAt) local.checkedAt = now
+      }
+      // Preserve local photoPath if it exists
+      if (local.photoPath && !cloudMarker.photoPath) {
+        // keep local
+      }
+      if (cloudMarker.photoPath) {
+        local.photoPath = cloudMarker.photoPath
+      }
+      // Update metadata
+      if (cloudMarker.checkinCount && (cloudMarker as any).checkinCount > 0) {
+        (local as any).checkinCount = (cloudMarker as any).checkinCount
+      }
+    }
+  }
+
+  const result = Array.from(merged.values())
+  saveMarkers(result)
+  setLastSyncTime(now)
+  console.log('[cloudSync] syncMarkers: local=' + localMarkers.length + ' cloud=' + cloudData.length + ' merged=' + result.length)
+  return result
+}
+
+// ===== Pull user tasks from cloud =====
+
+export async function pullUserTasks(): Promise<UTSJSONObject[]> {
+  try {
+    const markerApi = uniCloud.importObject('marker-center')
+    const res = await markerApi.getUserTasks() as UTSJSONObject
+    const errCode = res["errCode"] as number
+    if (errCode === 0) {
+      return res["data"] as UTSJSONObject[]
+    }
+    return []
+  } catch (e) {
+    console.log('[cloudSync] pullUserTasks failed', e)
+    return []
+  }
+}
+
+// ===== Pull rewards from cloud =====
+
+export async function pullRewards(): Promise<UTSJSONObject[]> {
+  try {
+    const markerApi = uniCloud.importObject('marker-center')
+    const res = await markerApi.getRewards() as UTSJSONObject
+    const errCode = res["errCode"] as number
+    if (errCode === 0) {
+      return res["data"] as UTSJSONObject[]
+    }
+    return []
+  } catch (e) {
+    console.log('[cloudSync] pullRewards failed', e)
     return []
   }
 }

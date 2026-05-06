@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { Marker, NewMarkerInput } from '@/types/marker'
 import { loadMarkers, saveMarkers } from '@/utils/storage'
 import { getDefaultMarkers } from '@/utils/defaults'
+import { syncMarkers } from '@/utils/cloudSync'
 
 export const useMarkerStore = defineStore('markers', () => {
   const markers = ref<Marker[]>([])
@@ -92,10 +93,18 @@ export const useMarkerStore = defineStore('markers', () => {
     return markers.value.find(m => m.title === title)
   }
 
+  async function syncFromCloud(): Promise<number> {
+    isLoading.value = true
+    const merged = await syncMarkers()
+    markers.value = merged.length > 0 ? merged : markers.value
+    isLoading.value = false
+    return merged.length
+  }
+
   return {
     markers, isLoading,
     checkedMarkers, pendingMarkers, totalCount, doneCount, completionRate, displayMarkers,
     loadFromStorage, persist, addMarker, doCheckIn, deleteMarker,
-    findById, findByTitle
+    findById, findByTitle, syncFromCloud
   }
 })
