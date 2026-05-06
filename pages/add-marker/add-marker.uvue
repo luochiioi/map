@@ -1,0 +1,31 @@
+<template>
+  <view class="placeholder-page">
+    <text class="placeholder-title">新增打卡点</text>
+    <text class="placeholder-desc">新增功能将在会话 5 中实现</text>
+  </view>
+</template>
+
+<script setup lang="uts">
+</script>
+
+<style>
+.placeholder-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx;
+  background-color: #f8f8f8;
+}
+.placeholder-title {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #2ecc71;
+  margin-bottom: 20rpx;
+}
+.placeholder-desc {
+  font-size: 26rpx;
+  color: #999999;
+}
+</style>

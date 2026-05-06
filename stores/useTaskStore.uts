@@ -1,0 +1,22 @@
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import type { Task } from '@/types/task'
+import { loadTasks } from '@/utils/storage'
+import { getDefaultTasks } from '@/utils/defaults'
+
+export const useTaskStore = defineStore('tasks', () => {
+  const tasks = ref<Task[]>([])
+
+  function loadFromStorage(): void {
+    let stored = loadTasks()
+    if (stored.length === 0) {
+      stored = getDefaultTasks()
+    }
+    tasks.value = stored
+  }
+
+  return {
+    tasks,
+    loadFromStorage
+  }
+})

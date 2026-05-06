@@ -1,0 +1,101 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import type { Marker, NewMarkerInput } from '@/types/marker'
+import { loadMarkers, saveMarkers } from '@/utils/storage'
+import { getDefaultMarkers } from '@/utils/defaults'
+
+export const useMarkerStore = defineStore('markers', () => {
+  const markers = ref<Marker[]>([])
+  const isLoading = ref<boolean>(false)
+
+  const checkedMarkers = computed(() => markers.value.filter(m => m.checked))
+  const pendingMarkers = computed(() => markers.value.filter(m => !m.checked))
+  const totalCount = computed(() => markers.value.length)
+  const doneCount = computed(() => checkedMarkers.value.length)
+  const completionRate = computed(() =>
+    totalCount.value === 0 ? 0 : Math.round((doneCount.value / totalCount.value) * 100)
+  )
+
+  const displayMarkers = computed(() =>
+    markers.value.map(m => {
+      const base: Record<string, any> = { ...m }
+      if (m.checked) {
+        base.label = {
+          content: '✓',
+          color: '#34c759',
+          fontSize: 13,
+          borderRadius: 10,
+          bgColor: '#e6f9ed',
+          padding: 4
+        }
+        base.iconPath = '/static/marker_checked.png'
+      }
+      return base
+    })
+  )
+
+  async function loadFromStorage(): Promise<void> {
+    isLoading.value = true
+    let stored = loadMarkers()
+    if (stored.length === 0) {
+      stored = getDefaultMarkers()
+      saveMarkers(stored)
+    }
+    markers.value = stored
+    isLoading.value = false
+  }
+
+  function persist(): void {
+    saveMarkers(markers.value)
+  }
+
+  async function addMarker(input: NewMarkerInput): Promise<Marker> {
+    const marker: Marker = {
+      id: Date.now(),
+      _id: String(Date.now()),
+      title: input.title,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      checked: false,
+      width: 36,
+      height: 36,
+      iconPath: '/static/marker_default.png',
+      createdAt: Date.now()
+    }
+    markers.value.push(marker)
+    persist()
+    return marker
+  }
+
+  async function doCheckIn(markerId: number, photoPath: string | null, note: string | null): Promise<Marker> {
+    const idx = markers.value.findIndex(m => m.id === markerId)
+    if (idx === -1) throw new Error('Marker not found: ' + markerId)
+    markers.value[idx].checked = true
+    markers.value[idx].checkedAt = Date.now()
+    markers.value[idx].iconPath = '/static/marker_checked.png'
+    if (photoPath) markers.value[idx].photoPath = photoPath
+    if (note) markers.value[idx].note = note
+    persist()
+    return markers.value[idx]
+  }
+
+  async function deleteMarker(markerId: number): Promise<void> {
+    markers.value = markers.value.filter(m => m.id !== markerId)
+    persist()
+  }
+
+  function findById(id: number): Marker | undefined {
+    return markers.value.find(m => m.id === id)
+  }
+
+  function findByTitle(title: string): Marker | undefined {
+    return markers.value.find(m => m.title === title)
+  }
+
+  return {
+    markers, isLoading,
+    checkedMarkers, pendingMarkers, totalCount, doneCount, completionRate, displayMarkers,
+    loadFromStorage, persist, addMarker, doCheckIn, deleteMarker,
+    findById, findByTitle
+  }
+})

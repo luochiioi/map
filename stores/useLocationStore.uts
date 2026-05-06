@@ -1,0 +1,118 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import type { LocationData, AccuracyLevel } from '@/types/location'
+import { calculateDistance as haversine } from '@/utils/coordinate'
+
+export const useLocationStore = defineStore('location', () => {
+  const currentLocation = ref<LocationData | null>(null)
+  const accuracy = ref<number>(0)
+  const isTracking = ref<boolean>(false)
+  let pollTimerId: number = 0
+
+  const accuracyLevel = computed<AccuracyLevel>(() => {
+    if (accuracy.value <= 0) return 'unknown'
+    if (accuracy.value < 30) return 'good'
+    if (accuracy.value <= 100) return 'mid'
+    return 'bad'
+  })
+
+  const accuracyText = computed<string>(() => {
+    if (accuracy.value <= 0) return '定位中...'
+    const m = Math.round(accuracy.value)
+    if (accuracy.value < 30) return `${m}m 精度佳`
+    if (accuracy.value <= 100) return `${m}m 精度中`
+    return `${m}m 精度差`
+  })
+
+  function startTracking(): void {
+    isTracking.value = true
+    uni.startLocationUpdate({
+      type: 'gcj02',
+      success: () => {},
+      fail: () => {
+        uni.getLocation({
+          type: 'gcj02',
+          isHighAccuracy: true,
+          highAccuracyExpireTime: 6000,
+          success: (res: any) => applyLocation(res)
+        })
+      }
+    })
+    uni.onLocationChange((res: any) => applyLocation(res))
+  }
+
+  function stopTracking(): void {
+    isTracking.value = false
+    uni.offLocationChange()
+    uni.stopLocationUpdate()
+  }
+
+  function applyLocation(res: Record<string, any>): void {
+    const acc: number = res.accuracy ?? 0
+    accuracy.value = acc
+    if (acc > 150) return
+    currentLocation.value = {
+      latitude: res.latitude as number,
+      longitude: res.longitude as number,
+      accuracy: acc
+    }
+  }
+
+  function pollLocationOnce(): Promise<LocationData> {
+    return new Promise((resolve, reject) => {
+      uni.getLocation({
+        type: 'gcj02',
+        isHighAccuracy: true,
+        highAccuracyExpireTime: 6000,
+        success: (res: any) => {
+          const loc: LocationData = {
+            latitude: res.latitude as number,
+            longitude: res.longitude as number,
+            accuracy: res.accuracy ?? 0
+          }
+          accuracy.value = loc.accuracy
+          currentLocation.value = loc
+          resolve(loc)
+        },
+        fail: (err: any) => reject(err)
+      })
+    })
+  }
+
+  function startPolling(intervalMs: number): void {
+    const poll = (): void => {
+      uni.getLocation({
+        type: 'gcj02',
+        isHighAccuracy: true,
+        highAccuracyExpireTime: 6000,
+        success: (res: any) => applyLocation(res)
+      })
+    }
+    poll()
+    pollTimerId = setInterval(poll, intervalMs) as unknown as number
+  }
+
+  function stopPolling(): void {
+    if (pollTimerId) {
+      clearInterval(pollTimerId)
+      pollTimerId = 0
+    }
+  }
+
+  function distanceTo(lat: number, lng: number): number | null {
+    if (!currentLocation.value) return null
+    return haversine(
+      currentLocation.value.latitude,
+      currentLocation.value.longitude,
+      lat, lng
+    )
+  }
+
+  return {
+    currentLocation, accuracy, isTracking,
+    accuracyLevel, accuracyText,
+    startTracking, stopTracking, applyLocation,
+    pollLocationOnce, startPolling, stopPolling,
+    distanceTo
+  }
+})

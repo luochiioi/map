@@ -1,0 +1,58 @@
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import type { Marker } from '@/types/marker'
+
+export const useMapStore = defineStore('map', () => {
+  const latitude = ref<number>(39.9163)
+  const longitude = ref<number>(116.3972)
+  const scale = ref<number>(12)
+  const activeMarker = ref<Marker | null>(null)
+  const mapCenterLat = ref<number>(39.9163)
+  const mapCenterLng = ref<number>(116.3972)
+  const mapContext = ref<any>(null)
+  const focusTarget = ref<Marker | null>(null)
+
+  function setActiveMarker(marker: Marker | null): void {
+    activeMarker.value = marker
+    if (marker) {
+      latitude.value = marker.latitude
+      longitude.value = marker.longitude
+    }
+  }
+
+  function zoomIn(): void {
+    if (scale.value < 20) scale.value++
+  }
+
+  function zoomOut(): void {
+    if (scale.value > 3) scale.value--
+  }
+
+  function moveToLocation(lat: number, lng: number, targetScale: number = 16): void {
+    latitude.value = lat
+    longitude.value = lng
+    scale.value = targetScale
+  }
+
+  function onRegionChangeEnd(centerLat: number, centerLng: number): void {
+    mapCenterLat.value = centerLat
+    mapCenterLng.value = centerLng
+  }
+
+  function requestFocus(marker: Marker): void {
+    focusTarget.value = marker
+  }
+
+  function consumeFocus(): Marker | null {
+    const m = focusTarget.value
+    focusTarget.value = null
+    return m
+  }
+
+  return {
+    latitude, longitude, scale, activeMarker,
+    mapCenterLat, mapCenterLng, mapContext, focusTarget,
+    setActiveMarker, zoomIn, zoomOut, moveToLocation,
+    onRegionChangeEnd, requestFocus, consumeFocus
+  }
+})

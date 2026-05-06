@@ -1,0 +1,489 @@
+<template>
+  <view class="map-page">
+    <!-- Top location info card -->
+    <view class="location-card">
+      <view class="loc-row">
+        <text class="coordinate">经度: {{ locationStore.currentLocation?.longitude?.toFixed(6) ?? '--' }}</text>
+        <text class="coordinate">纬度: {{ locationStore.currentLocation?.latitude?.toFixed(6) ?? '--' }}</text>
+      </view>
+      <view class="loc-row">
+        <view class="accuracy-badge" :class="'accuracy-' + locationStore.accuracyLevel">
+          <text class="accuracy-text">{{ locationStore.accuracyText }}</text>
+        </view>
+        <text class="stats">{{ markerStore.doneCount }}/{{ markerStore.totalCount }} 已打卡</text>
+      </view>
+    </view>
+
+    <!-- Native map -->
+    <map
+      id="mainMap"
+      class="map-component"
+      :latitude="mapStore.latitude"
+      :longitude="mapStore.longitude"
+      :scale="mapStore.scale"
+      :markers="markerStore.displayMarkers"
+      show-location
+      coord-type="gcj02"
+      @markertap="onMarkerTap"
+      @longpress="onMapLongPress"
+      @regionchange="onRegionChange"
+    >
+      <!-- Map tool buttons -->
+      <cover-view class="map-tools">
+        <cover-view class="tool-btn task-btn" @click="goToTasks">
+          <cover-view class="tool-label">📋</cover-view>
+        </cover-view>
+        <cover-view class="tool-btn zoom-in" @click="mapStore.zoomIn()">
+          <cover-view class="tool-label">+</cover-view>
+        </cover-view>
+        <cover-view class="tool-btn zoom-out" @click="mapStore.zoomOut()">
+          <cover-view class="tool-label">−</cover-view>
+        </cover-view>
+        <cover-view class="tool-btn locate-btn" @click="locateCurrent">
+          <cover-view class="tool-label">📍</cover-view>
+        </cover-view>
+      </cover-view>
+
+      <!-- Floating add button -->
+      <cover-view class="floating-add-btn" @click="goToAddMarker">
+        <cover-view class="add-icon">+</cover-view>
+        <cover-view class="add-label">在此新增</cover-view>
+      </cover-view>
+
+      <!-- Bottom sheet for marker detail -->
+      <cover-view class="bottom-sheet" v-if="mapStore.activeMarker">
+        <cover-view class="sheet-header">
+          <cover-view class="sheet-title">{{ mapStore.activeMarker.title }}</cover-view>
+          <cover-view class="sheet-close" @click="mapStore.setActiveMarker(null)">✕</cover-view>
+        </cover-view>
+        <cover-view class="sheet-body">
+          <template v-if="mapStore.activeMarker.checked">
+            <cover-view class="sheet-row">
+              <text>打卡时间：{{ formatDateTime(mapStore.activeMarker.checkedAt!) }}</text>
+            </cover-view>
+            <cover-view v-if="mapStore.activeMarker.note" class="sheet-note">
+              <text>{{ mapStore.activeMarker.note }}</text>
+            </cover-view>
+            <cover-view class="sheet-actions">
+              <cover-view class="action-btn danger" @click="deleteCurrentMarker">
+                <text>删除</text>
+              </cover-view>
+            </cover-view>
+          </template>
+          <template v-else>
+            <cover-view class="sheet-distance" v-if="distance != null">
+              <text>距离：{{ formatDistance(distance) }}</text>
+              <cover-view class="distance-bar">
+                <cover-view class="distance-fill" :style="{ width: distanceRatio + '%' }"></cover-view>
+              </cover-view>
+            </cover-view>
+            <cover-view class="sheet-row">
+              <text class="status-pending">未打卡</text>
+            </cover-view>
+            <cover-view class="sheet-actions">
+              <cover-view class="action-btn primary" @click="goToCheckIn(mapStore.activeMarker!)" v-if="canCheckIn">
+                <text>打卡</text>
+              </cover-view>
+              <cover-view class="action-btn danger" @click="deleteCurrentMarker">
+                <text>删除</text>
+              </cover-view>
+            </cover-view>
+          </template>
+        </cover-view>
+      </cover-view>
+    </map>
+  </view>
+</template>
+
+<script setup lang="uts">
+import { ref, computed, onShow, onHide } from 'vue'
+import { useMarkerStore } from '@/stores/useMarkerStore'
+import { useLocationStore } from '@/stores/useLocationStore'
+import { useMapStore } from '@/stores/useMapStore'
+import { useTaskStore } from '@/stores/useTaskStore'
+import { formatDateTime, formatDistance } from '@/utils/format'
+import type { Marker } from '@/types/marker'
+
+const markerStore = useMarkerStore()
+const locationStore = useLocationStore()
+const mapStore = useMapStore()
+const taskStore = useTaskStore()
+
+const distance = computed(() => {
+  if (!mapStore.activeMarker || !locationStore.currentLocation) return null
+  return locationStore.distanceTo(
+    mapStore.activeMarker.latitude,
+    mapStore.activeMarker.longitude
+  )
+})
+
+const effectiveRadius = computed(() => {
+  const acc = locationStore.accuracy
+  return 500 + Math.min(acc * 0.5, 200)
+})
+
+const distanceRatio = computed(() => {
+  if (!distance.value) return 0
+  return Math.min(100, (distance.value / 500) * 100)
+})
+
+const canCheckIn = computed(() => {
+  return distance.value !== null && distance.value <= effectiveRadius.value
+})
+
+onShow((): void => {
+  markerStore.loadFromStorage()
+  taskStore.loadFromStorage()
+  locationStore.startTracking()
+
+  const target = mapStore.consumeFocus()
+  if (target) {
+    mapStore.moveToLocation(target.latitude, target.longitude, 16)
+    mapStore.setActiveMarker(target)
+  }
+})
+
+onHide((): void => {
+  locationStore.stopTracking()
+})
+
+function onMarkerTap(e: { detail: { markerId: number } }): void {
+  const marker = markerStore.findById(e.detail.markerId)
+  if (marker) mapStore.setActiveMarker(marker)
+}
+
+function onMapLongPress(e: { detail: { latitude: number; longitude: number } }): void {
+  uni.navigateTo({
+    url: `/pages/add-marker/add-marker?centerLat=${e.detail.latitude}&centerLng=${e.detail.longitude}&currentLat=${locationStore.currentLocation?.latitude ?? ''}&currentLng=${locationStore.currentLocation?.longitude ?? ''}`
+  })
+}
+
+function onRegionChange(e: any): void {
+  if (e.type === 'end' && e.detail?.centerLocation) {
+    mapStore.onRegionChangeEnd(
+      e.detail.centerLocation.latitude,
+      e.detail.centerLocation.longitude
+    )
+  }
+}
+
+function goToAddMarker(): void {
+  uni.navigateTo({
+    url: `/pages/add-marker/add-marker?centerLat=${mapStore.mapCenterLat}&centerLng=${mapStore.mapCenterLng}&currentLat=${locationStore.currentLocation?.latitude ?? ''}&currentLng=${locationStore.currentLocation?.longitude ?? ''}`
+  })
+}
+
+function goToCheckIn(marker: Marker): void {
+  uni.navigateTo({
+    url: `/pages/checkin/checkin?id=${marker.id}&title=${encodeURIComponent(marker.title)}`
+  })
+}
+
+function goToTasks(): void {
+  uni.navigateTo({ url: '/pages/tasks/tasks' })
+}
+
+function locateCurrent(): void {
+  if (locationStore.currentLocation) {
+    mapStore.moveToLocation(
+      locationStore.currentLocation.latitude,
+      locationStore.currentLocation.longitude
+    )
+  }
+}
+
+function deleteCurrentMarker(): void {
+  if (!mapStore.activeMarker) return
+  uni.showModal({
+    title: '确认删除',
+    content: `确定要删除"${mapStore.activeMarker.title}"吗？`,
+    success: (res: any) => {
+      if (res.confirm) {
+        markerStore.deleteMarker(mapStore.activeMarker!.id)
+        mapStore.setActiveMarker(null)
+      }
+    }
+  })
+}
+</script>
+
+<style>
+.map-page {
+  flex: 1;
+  width: 750rpx;
+  height: 100vh;
+  position: relative;
+}
+
+.map-component {
+  width: 750rpx;
+  height: 100%;
+}
+
+/* Location card */
+.location-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background-color: rgba(255, 255, 255, 0.92);
+  padding: 20rpx 30rpx;
+  padding-top: calc(20rpx + var(--status-bar-height, 44px));
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  backdrop-filter: blur(10px);
+}
+
+.loc-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.coordinate {
+  font-size: 22rpx;
+  color: #666666;
+  font-family: monospace;
+}
+
+.accuracy-badge {
+  padding: 6rpx 20rpx;
+  border-radius: 20rpx;
+}
+
+.accuracy-badge.accuracy-good {
+  background-color: #e6f9ed;
+}
+
+.accuracy-badge.accuracy-mid {
+  background-color: #fff3e0;
+}
+
+.accuracy-badge.accuracy-bad {
+  background-color: #fde8e8;
+}
+
+.accuracy-badge.accuracy-unknown {
+  background-color: #f0f0f0;
+}
+
+.accuracy-text {
+  font-size: 22rpx;
+  font-weight: 500;
+}
+
+.accuracy-good .accuracy-text { color: #34c759; }
+.accuracy-mid .accuracy-text { color: #f39c12; }
+.accuracy-bad .accuracy-text { color: #ff3b30; }
+.accuracy-unknown .accuracy-text { color: #999999; }
+
+.stats {
+  font-size: 24rpx;
+  color: #2ecc71;
+  font-weight: bold;
+}
+
+/* Map tools */
+.map-tools {
+  position: absolute;
+  right: 20rpx;
+  top: 280rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.tool-btn {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 40rpx;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.12);
+}
+
+.tool-label {
+  font-size: 36rpx;
+  color: #2ecc71;
+  font-weight: bold;
+}
+
+.task-btn {
+  background-color: #2ecc71;
+}
+
+.task-btn .tool-label {
+  color: #ffffff;
+  font-size: 28rpx;
+}
+
+/* Floating add button */
+.floating-add-btn {
+  position: absolute;
+  bottom: 200rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.add-icon {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 48rpx;
+  background-color: #2ecc71;
+  color: #ffffff;
+  font-size: 52rpx;
+  font-weight: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(46, 204, 113, 0.4);
+}
+
+.add-label {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #2ecc71;
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 4rpx 16rpx;
+  border-radius: 12rpx;
+}
+
+/* Bottom sheet */
+.bottom-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #ffffff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 32rpx;
+  box-shadow: 0 -4rpx 24rpx rgba(0, 0, 0, 0.08);
+}
+
+.sheet-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.sheet-title {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #1a1a1a;
+}
+
+.sheet-close {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 24rpx;
+  background-color: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  color: #999999;
+}
+
+.sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.sheet-row {
+  padding: 8rpx 0;
+}
+
+.sheet-row text {
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.status-pending {
+  color: #f39c12;
+  font-weight: 500;
+}
+
+.sheet-note {
+  background-color: #f8f8f8;
+  padding: 16rpx;
+  border-radius: 12rpx;
+}
+
+.sheet-note text {
+  font-size: 26rpx;
+  color: #666666;
+}
+
+.sheet-distance {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.sheet-distance text {
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.distance-bar {
+  height: 8rpx;
+  background-color: #f0f0f0;
+  border-radius: 4rpx;
+  overflow: hidden;
+}
+
+.distance-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2ecc71, #f39c12);
+  border-radius: 4rpx;
+  transition: width 0.3s ease;
+}
+
+.sheet-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 20rpx;
+  margin-top: 16rpx;
+}
+
+.action-btn {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn text {
+  font-size: 30rpx;
+  font-weight: 500;
+}
+
+.action-btn.primary {
+  background-color: #2ecc71;
+}
+
+.action-btn.primary text {
+  color: #ffffff;
+}
+
+.action-btn.danger {
+  background-color: #f8f8f8;
+}
+
+.action-btn.danger text {
+  color: #ff3b30;
+}
+</style>
