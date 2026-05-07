@@ -79,21 +79,15 @@ function ensureMapCtx(): MapContext | null {
 // `uts.sdk.modules.DCloudUniMapTencent.Marker`，两处不一致触发 error17。
 // 按 uni_modules/uni-openLocation/pages/openLocation/openLocation.uvue 同款写法
 // （全 cast，无注解）规避。
-const displayMarkers = computed(() => {
-  const result = [] as Marker[]
-  markers.value.forEach((m: CheckinMarker) => {
-    result.push({
-      id: m.id,
-      latitude: m.latitude,
-      longitude: m.longitude,
-      title: m.title,
-      iconPath: m.iconPath,
-      width: m.width,
-      height: m.height
-    } as Marker)
-  })
-  return result
-})
+const displayMarkers = computed(() => markers.value.map((m: CheckinMarker) => ({
+  id: m.id,
+  latitude: m.latitude,
+  longitude: m.longitude,
+  title: m.title,
+  iconPath: m.iconPath,
+  width: m.width,
+  height: m.height
+} as Marker)))
 
 const dist = computed(() => {
   const m = activeMarker.value
