@@ -104,8 +104,15 @@ function onMapLongPress(e: UTSJSONObject): void {
   uni.navigateTo({ url: `/pages/add-marker/add-marker?centerLat=${detail["latitude"] as number}&centerLng=${detail["longitude"] as number}&currentLat=${currentLocation.value?.latitude ?? ''}&currentLng=${currentLocation.value?.longitude ?? ''}` })
 }
 function onRegionChange(e: any): void {
-  if (e.type === 'end' && e.detail?.centerLocation != null) {
-    onRegionChangeEnd(e.detail.centerLocation.latitude, e.detail.centerLocation.longitude)
+  const evt = e as UTSJSONObject
+  if ((evt["type"] as string) === 'end') {
+    const dt = evt["detail"] as UTSJSONObject
+    if (dt != null) {
+      const cl = dt["centerLocation"] as UTSJSONObject
+      if (cl != null) {
+        onRegionChangeEnd(cl["latitude"] as number, cl["longitude"] as number)
+      }
+    }
   }
 }
 function goAddMarker(): void {
