@@ -55,8 +55,8 @@
       clearUserInfo()
       return
     }
-    verifyLogin().then(() => {
-      syncMarkers().catch(() => {})
+    verifyLogin().then((_: void): void => {
+      syncMarkers().catch((_: any): void => {})
     })
   })
 
@@ -78,7 +78,7 @@
     console.log('App Hide')
   })
 
-  async function verifyLogin() {
+  async function verifyLogin(): Promise<void> {
     try {
       const userApi = uniCloud.importObject('user-center')
       await userApi.checkToken()
