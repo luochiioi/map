@@ -108,13 +108,13 @@ export const useMarkerStore = defineStore('markers', () => {
     doneCount: doneCount,
     completionRate: completionRate,
     displayMarkers: displayMarkers,
-    loadFromStorage: loadFromStorage,
-    persist: persist,
-    addMarker: addMarker,
-    doCheckIn: doCheckIn,
-    deleteMarker: deleteMarker,
+    loadFromStorage: (): void => { loadFromStorage() },
+    persist: (): void => { persist() },
+    addMarker: (input: NewMarkerInput): void => { addMarker(input) },
+    doCheckIn: (markerId: number, photoPath: string | null, note: string | null): void => { doCheckIn(markerId, photoPath, note) },
+    deleteMarker: (markerId: number): void => { deleteMarker(markerId) },
     findById: findById,
     findByTitle: findByTitle,
-    syncFromCloud: syncFromCloud
+    syncFromCloud: (): void => { syncFromCloud() }
   } as any
 })
