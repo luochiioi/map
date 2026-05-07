@@ -24,13 +24,13 @@ export const useLocationStore = defineStore('location', () => {
     return `${m}m 精度差`
   })
 
-  function applyLocation(res: Record<string, any>): void {
-    const acc: number = res.accuracy ?? 0
+  function applyLocation(res: UTSJSONObject): void {
+    const acc: number = res["accuracy"] as number ?? 0
     accuracy.value = acc
     if (acc > 150) return
     currentLocation.value = {
-      latitude: res.latitude as number,
-      longitude: res.longitude as number,
+      latitude: res["latitude"] as number,
+      longitude: res["longitude"] as number,
       accuracy: acc
     }
   }
@@ -113,7 +113,7 @@ export const useLocationStore = defineStore('location', () => {
     accuracyLevel: accuracyLevel, accuracyText: accuracyText,
     startTracking: (): void => { startTracking() },
     stopTracking: (): void => { stopTracking() },
-    applyLocation: (res: Record<string, any>): void => { applyLocation(res) },
+    applyLocation: (res: UTSJSONObject): void => { applyLocation(res) },
     pollLocationOnce: (): Promise<LocationData> => { return pollLocationOnce() },
     startPolling: (intervalMs: number): void => { startPolling(intervalMs) },
     stopPolling: (): void => { stopPolling() },
