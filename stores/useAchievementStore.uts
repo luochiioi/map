@@ -9,21 +9,21 @@ export const useAchievementStore = defineStore('achievements', () => {
   function getAchievements(): Achievement[] {
     const markerStore = useMarkerStore()
     const taskStore = useTaskStore()
-    const done = markerStore["checkedMarkers"] as Marker[]
+    const done = markerStore.checkedMarkers as Marker[]
     const photo = done.filter((m: Marker): boolean => { return m.photoPath != null }) as Marker[]
-    const userCreated = Math.max(0, (markerStore["totalCount"] as number) - 8)
+    const userCreated = Math.max(0, (markerStore.totalCount as number) - 8)
 
-    const totalTasks = taskStore["totalTaskCount"] as number
-    const completedTasks = taskStore["completedTaskCount"] as number
+    const totalTasks = taskStore.totalTaskCount as number
+    const completedTasks = taskStore.completedTaskCount as number
 
     return [
-      { id: 'first',   icon: '🥾', name: '初探者',  desc: '完成首次打卡',    unlocked: done.length >= 1 },
-      { id: 'three',   icon: '🗺️', name: '探索者',   desc: '打卡 3 个地点',   unlocked: done.length >= 3 },
-      { id: 'five',    icon: '🏔️', name: '冒险家',   desc: '打卡 5 个地点',   unlocked: done.length >= 5 },
-      { id: 'ten',     icon: '🌟', name: '传奇旅人', desc: '打卡 10 个地点',  unlocked: done.length >= 10 },
-      { id: 'photo',   icon: '📸', name: '摄影师',   desc: '3 次带照片打卡',  unlocked: photo.length >= 3 },
-      { id: 'create',  icon: '📍', name: '创建者',   desc: '创建 5 个打卡点', unlocked: userCreated >= 5 },
-      { id: 'alltask', icon: '🎯', name: '全勤达人', desc: '完成所有任务',
+      { id: 'first',   icon: 'L1', name: '初探者',  desc: '完成首次打卡',    unlocked: done.length >= 1 },
+      { id: 'three',   icon: 'L2', name: '探索者',   desc: '打卡 3 个地点',   unlocked: done.length >= 3 },
+      { id: 'five',    icon: 'L3', name: '冒险家',   desc: '打卡 5 个地点',   unlocked: done.length >= 5 },
+      { id: 'ten',     icon: 'L4', name: '传奇旅人', desc: '打卡 10 个地点',  unlocked: done.length >= 10 },
+      { id: 'photo',   icon: 'L5', name: '摄影师',   desc: '3 次带照片打卡',  unlocked: photo.length >= 3 },
+      { id: 'create',  icon: 'L6', name: '创建者',   desc: '创建 5 个打卡点', unlocked: userCreated >= 5 },
+      { id: 'alltask', icon: 'L7', name: '全勤达人', desc: '完成所有任务',
         unlocked: totalTasks > 0 && completedTasks === totalTasks },
     ]
   }
@@ -34,5 +34,5 @@ export const useAchievementStore = defineStore('achievements', () => {
   return {
     achievements: achievements,
     unlockedCount: unlockedCount
-  } as any
+  }
 })

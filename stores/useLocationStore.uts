@@ -120,5 +120,5 @@ export const useLocationStore = defineStore('location', () => {
     startPolling: (intervalMs: number): void => { startPolling(intervalMs) },
     stopPolling: (): void => { stopPolling() },
     distanceTo: (lat: number, lng: number): number | null => { return distanceTo(lat, lng) }
-  } as any
+  }
 })

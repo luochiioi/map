@@ -59,7 +59,7 @@ export const useTaskStore = defineStore('tasks', () => {
         taskName: task.name,
         reward: task.reward,
         earnedAt: task.completedAt
-      } as any as Reward
+      } as Reward
       rewards.value.push(reward)
       completed.push(task)
     })
@@ -82,5 +82,5 @@ export const useTaskStore = defineStore('tasks', () => {
     persist: (): void => { persist() },
     checkTaskCompletion: (marker: Marker): Task[] => { return checkTaskCompletion(marker) },
     findTaskById: (id: string): Task | null => { return findTaskById(id) }
-  } as any
+  }
 })

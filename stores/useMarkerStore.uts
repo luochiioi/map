@@ -116,5 +116,5 @@ export const useMarkerStore = defineStore('markers', () => {
     findById: (id: number): Marker | null => { return findById(id) },
     findByTitle: (title: string): Marker | null => { return findByTitle(title) },
     syncFromCloud: (): void => { syncFromCloud() }
-  } as any
+  }
 })

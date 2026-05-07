@@ -60,5 +60,5 @@ export const useMapStore = defineStore('map', () => {
     onRegionChangeEnd: (lat: number, lng: number): void => { onRegionChangeEnd(lat, lng) },
     requestFocus: (m: Marker): void => { requestFocus(m) },
     consumeFocus: (): Marker | null => { return consumeFocus() }
-  } as any
+  }
 })
