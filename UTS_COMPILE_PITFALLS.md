@@ -30,7 +30,9 @@
 | **5** | **可空类型必须 `?.` 或 `!!.`** | `cloudMarker.id` | `cloudMarker?.id` |
 | **6** | **无 `undefined` 关键字** | `let x = undefined` | boolean flag: `let inited = false` |
 | **7** | **`null` 不可赋值 `any`** | `let x: any = null` | `let x: UTSJSONObject\|null = null` |
-| **8** | **`String(n)` 不接受 number** | `String(Date.now())` | `'' + Date.now()` |
+| **8** | **无 `unknown` 关键字** | `x as unknown as T` | `x as any as T` |
+| **9** | **`ref<any>(null)` 不可用** | `ref<any>(null)` | `ref<UTSJSONObject\|null>(null)` |
+| **10** | **`String(n)` 不接受 number** | `String(Date.now())` | `'' + Date.now()` |
 | **9** | **禁止泛型 `defineProps<T>()`** | `defineProps<{a:Type}>()` | `defineProps({a:{type,required}})` |
 | **10** | **禁止泛型 `defineEmits<T>()`** | `defineEmits<(e)=>void>()` | `defineEmits(['name'])` |
 | **11** | **Pinia 模块不可用** | `from 'pinia'` | `from './pinia-shim'` |

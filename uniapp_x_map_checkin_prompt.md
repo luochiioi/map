@@ -1788,6 +1788,14 @@ page {
 
 ---
 
+### 11.5 UTS 编译避坑指南
+
+> **配套文件**：`UTS_COMPILE_PITFALLS.md`（文件位置：`map_new/UTS_COMPILE_PITFALLS.md`）
+> 该文件记录了 Phase 1 实战中全部 20+ 条编译错误的根因与解决方案，覆盖 CSS/UTS 语法/组件架构三大类。
+> **后续所有 .uvue/.uts 文件编写前必须查阅该文档**，避免重复踩坑。
+
+---
+
 ## 十二、uniCloud 云端架构
 
 ### 12.1 概述
