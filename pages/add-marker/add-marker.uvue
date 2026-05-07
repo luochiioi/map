@@ -59,19 +59,19 @@ let centerLngFromMap = ''
 let currentLatFromMap = ''
 let currentLngFromMap = ''
 
-function getQuery(): Record<string, string> {
+function getQuery(): UTSJSONObject {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as UTSJSONObject
   const pg = currentPage["$page"] as UTSJSONObject
-    return pg != null ? pg["options"] as UTSJSONObject : {}
+  return pg != null ? pg["options"] as UTSJSONObject : {} as UTSJSONObject
 }
 
 onShow((): void => {
   const query = getQuery()
-  centerLatFromMap = query.centerLat ?? ''
-  centerLngFromMap = query.centerLng ?? ''
-  currentLatFromMap = query.currentLat ?? ''
-  currentLngFromMap = query.currentLng ?? ''
+  centerLatFromMap = (query["centerLat"] as string) ?? ''
+  centerLngFromMap = (query["centerLng"] as string) ?? ''
+  currentLatFromMap = (query["currentLat"] as string) ?? ''
+  currentLngFromMap = (query["currentLng"] as string) ?? ''
   setSource('center')
 })
 

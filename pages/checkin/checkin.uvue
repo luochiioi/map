@@ -82,8 +82,8 @@ onShow((): void => {
   const currentPage = pages[pages.length - 1] as UTSJSONObject
   const pg = currentPage["$page"] as UTSJSONObject
   const query = pg != null ? pg["options"] as UTSJSONObject : {}
-  markerId.value = parseInt(query.id ?? '0')
-  markerTitle.value = decodeURIComponent(query.title ?? '')
+  markerId.value = parseInt((query["id"] as string) ?? '0')
+  markerTitle.value = decodeURIComponent((query["title"] as string) ?? '')
   locationStore.startPolling(5000)
 })
 

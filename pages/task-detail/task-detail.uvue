@@ -70,7 +70,7 @@ onShow((): void => {
   const currentPage = pages[pages.length - 1] as UTSJSONObject
   const pg = currentPage["$page"] as UTSJSONObject
   const query = pg != null ? pg["options"] as UTSJSONObject : {}
-  taskId.value = query.id ?? ''
+  taskId.value = (query["id"] as string) ?? ''
   taskStore.loadFromStorage()
   markerStore.loadFromStorage()
 })
