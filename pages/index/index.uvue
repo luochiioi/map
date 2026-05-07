@@ -13,7 +13,7 @@
       </view>
     </view>
 
-    <map id="mainMap" class="map-component" :latitude="latitude" :longitude="longitude" :scale="scale" show-location coord-type="gcj02" @markertap="onMarkerTap" @longpress="onMapLongPress" @regionchange="onRegionChange">
+    <map id="mainMap" class="map-component" :latitude="latitude" :longitude="longitude" :scale="scale" :markers="displayMarkers" show-location coord-type="gcj02" @markertap="onMarkerTap" @longpress="onMapLongPress" @regionchange="onRegionChange">
       <cover-view class="floating-add-btn" @click="goAddMarker">
         <cover-view class="add-icon">+</cover-view>
         <cover-view class="add-label">在此新增</cover-view>
@@ -72,17 +72,22 @@ function ensureMapCtx(): MapContext | null {
   return uni.createMapContext('mainMap')
 }
 
-// TODO(下一会话 P1): 重新接入 :markers 绑定。
-// 本会话尝试了 4 种写法都失败，全部触发 UTS 编译器 error17 / Return type mismatch:
-//   - UTSJSONObject[] 边界（编译过 / 运行时 ClassCastException）
-//   - .uts store 内 computed<Marker[]>（编译 error17）
-//   - .uvue computed<Marker[]> + : Marker[] 注解（编译 error17）
-//   - .uvue 单 cast `.map(m => ({...} as Marker))`（编译 error17 反向版）
-// 详见 UTS_COMPILE_PITFALLS §F。
-// 暂时不绑 :markers,先保证 app 能编译能启动。下一会话换路:
-//   方案 1: imperative API,通过 MapContext.addMarker / setMarkers 主动调用
-//   方案 2: 模板字面量 `<map :markers="[{...}]">` 直接写死(动态化用 v-if 切换)
-//   方案 3: 把 displayMarkers 写在第三方插件的 .uvue 文件 namespace 里(同 openLocation)
+// displayMarkers — 默认 8 个打卡点的 SDK Marker[]。
+// 严格照搬 uni_modules/uni-openLocation/pages/openLocation/openLocation.uvue 的写法：
+//   ref([...字面量数组...] as Marker[])
+// 不要用 .map() / forEach + push / computed —— 这些都会触发 UTS 编译器对
+// `Marker` 的命名空间反向推导歧义（详见 UTS_COMPILE_PITFALLS §F 的 5 种失败对照表）。
+// 字面量数组 + 双 cast 是已知能跑通的唯一形式。
+const displayMarkers = ref([
+  { id: 1, latitude: 39.9163, longitude: 116.3972, title: '北京故宫', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
+  { id: 2, latitude: 31.1465, longitude: 121.6593, title: '上海迪士尼', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
+  { id: 3, latitude: 28.1836, longitude: 112.9388, title: '长沙岳麓书院', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
+  { id: 4, latitude: 22.1979, longitude: 113.5413, title: '澳门大三巴', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
+  { id: 5, latitude: 28.1968, longitude: 112.9625, title: '长沙橘子洲', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
+  { id: 6, latitude: 23.1065, longitude: 113.3246, title: '广州塔', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
+  { id: 7, latitude: 23.0622, longitude: 113.3894, title: '中山大学东校区', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
+  { id: 8, latitude: 39.9505, longitude: 116.3474, title: '北京交通大学', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
+] as Marker[])
 
 const dist = computed(() => {
   const m = activeMarker.value
