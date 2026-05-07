@@ -191,13 +191,14 @@ export async function syncMarkers(): Promise<Marker[]> {
         local.photoPath = cloudMarker.photoPath
       }
       // Update metadata
-      if ((cloudMarker as any).checkinCount > 0) {
-        (local as any).checkinCount = (cloudMarker as any).checkinCount
+      if ((cloudMarker as any)["checkinCount"] as number > 0) {
+        (local as any)["checkinCount"] = (cloudMarker as any)["checkinCount"]
       }
     }
   }
 
-  const result = Array.from(merged.values())
+  const result: Marker[] = []
+  merged.forEach((v: Marker, _k: number) => { result.push(v) })
   saveMarkers(result)
   setLastSyncTime(now)
   console.log('[cloudSync] syncMarkers: local=' + localMarkers.length + ' cloud=' + cloudData.length + ' merged=' + result.length)
