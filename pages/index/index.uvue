@@ -147,14 +147,16 @@ onHide((): void => {
   locationStore.stopTracking()
 })
 
-function onMarkerTap(e: { detail: { markerId: number } }): void {
-  const marker = markerStore.findById(e.detail.markerId)
+function onMarkerTap(e: UTSJSONObject): void {
+  const detail = e["detail"] as UTSJSONObject
+  const marker = markerStore.findById(detail["markerId"] as number)
   if (marker) mapStore.setActiveMarker(marker)
 }
 
-function onMapLongPress(e: { detail: { latitude: number; longitude: number } }): void {
+function onMapLongPress(e: UTSJSONObject): void {
+  const detail = e["detail"] as UTSJSONObject
   uni.navigateTo({
-    url: `/pages/add-marker/add-marker?centerLat=${e.detail.latitude}&centerLng=${e.detail.longitude}&currentLat=${locationStore.currentLocation?.latitude ?? ''}&currentLng=${locationStore.currentLocation?.longitude ?? ''}`
+    url: `/pages/add-marker/add-marker?centerLat=${detail["latitude"] as number}&centerLng=${detail["longitude"] as number}&currentLat=${locationStore.currentLocation?.latitude ?? ''}&currentLng=${locationStore.currentLocation?.longitude ?? ''}`
   })
 }
 
