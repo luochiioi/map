@@ -42,7 +42,7 @@
 
 <script setup lang="uts">
 import { ref, computed, onShow, onHide } from 'vue'
-import { useMarkerStore } from '@/stores/compat'
+import { useMarkerStore, useLocationStore, useTaskStore } from '@/stores/compat'
 import { formatDistance } from '@/utils/format'
 import { enqueueAction } from '@/utils/cloudSync'
 

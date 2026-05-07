@@ -41,7 +41,7 @@
 
 <script setup lang="uts">
 import { ref, onShow } from 'vue'
-import { useMarkerStore } from '@/stores/compat'
+import { useMarkerStore, useLocationStore } from '@/stores/compat'
 import { enqueueAction } from '@/utils/cloudSync'
 
 const markerStore = useMarkerStore()

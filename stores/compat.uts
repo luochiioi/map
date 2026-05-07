@@ -14,11 +14,11 @@ export function useMarkerStore(): any {
     displayMarkers: M.displayMarkers,
     loadFromStorage: (): void => { M.loadFromStorage() },
     persist: (): void => { M.persist() },
-    addMarker: (input: any): void => { M.addMarker(input) },
+    addMarker: (input: any): void => { M.addMarker(input as any) },
     doCheckIn: (markerId: number, photoPath: string | null, note: string | null): void => { M.doCheckIn(markerId, photoPath, note) },
     deleteMarker: (markerId: number): void => { M.deleteMarker(markerId) },
-    findById: (id: number): any => { return M.findById(id) },
-    findByTitle: (title: string): any => { return M.findByTitle(title) },
+    findById: (id: number): any => { return M.findById(id) as any },
+    findByTitle: (title: string): any => { return M.findByTitle(title) as any },
     syncFromCloud: (): void => { M.syncFromCloud() }
   }
 }

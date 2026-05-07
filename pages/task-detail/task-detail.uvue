@@ -49,7 +49,7 @@
 
 <script setup lang="uts">
 import { ref, computed, onShow } from 'vue'
-import { useMarkerStore } from '@/stores/compat'
+import { useMarkerStore, useTaskStore, useMapStore } from '@/stores/compat'
 import { formatDateTime } from '@/utils/format'
 
 const taskStore = useTaskStore()
