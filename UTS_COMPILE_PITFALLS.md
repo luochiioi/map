@@ -309,6 +309,74 @@ computed 的返回类型**。腾讯地图插件的 `<map>` 组件 `:markers` pro
 - ❌ `[] as Marker[]` cast(单独使用 — 与内部元素 cast 解析到不同 namespace)
 - ❌ `UTSJSONObject[]` 边界(运行时被 setMarkers 强转拒)
 - ❌ `.map(m => ({...} as Marker))` 单 cast(模板反向推导仍报 mismatch)
+- ❌ `as SdkMarker` 别名 + 字面量数组 + `:markers="..."` 在 app 页面里(编译过,运行静默不渲染)
+- ❌ `.map()` callback 无论 arrow shorthand 还是 explicit return,UTS 都会
+  把 callback 返回类型识别成 `Unit`,触发 `UTSArray<Unit>` mismatch
+- ❌ 静态资源不存在的 iconPath(腾讯插件静默跳过该 marker,不报错也不渲染)
+
+---
+
+### 终极方案 #5(在 uni_modules 子组件内使用 ref + watchEffect + forEach + push)
+
+经过 4 轮失败,确认必须满足三个独立条件**同时**成立:
+
+1. **命名空间隔离**: SDK Marker 构造代码必须放在 `uni_modules/<module>/components/`
+   下的 `.uvue` 文件里,不能放在 `pages/*.uvue` 或 `stores/*.uts`。
+   原因:app 命名空间会自动合成 `uni.UNIC0495C1.Marker` typealias 与 SDK
+   Marker 同名冲突,uni_modules 子命名空间不参与该合成。
+
+2. **ref + watchEffect, NOT computed**: UTS 5.07 在 computed 上对返回数组
+   类型推导彻底坏掉,必须用 ref([] as SdkMarker[]) 初始化 + watchEffect
+   异步填充。这正是 `uni_modules/uni-openLocation/pages/openLocation/openLocation.uvue`
+   的写法。
+
+3. **forEach + push, NOT .map()**: UTS 编译器把 `.map()` callback 的返回值
+   认成 `Unit`,导致 `UTSArray<Unit>` 与 `UTSArray<Marker>` 不匹配。
+   只能 `arr.push({...} as SdkMarker)` 单值循环。
+
+最终代码模板(参考 `uni_modules/checkin-map/components/checkin-map/checkin-map.uvue`):
+
+```ts
+// 必须在 uni_modules 命名空间下
+type SdkMarker = uts.sdk.modules.DCloudUniMapTencent.Marker
+type MarkerInput = { id: number, latitude: number, ... }  // 本地名,与 SDK 不重
+
+const props = defineProps({
+  markersData: { type: Array as PropType<Array<MarkerInput>>, default: (): Array<MarkerInput> => [] }
+})
+
+const renderedMarkers = ref([] as SdkMarker[])
+
+watchEffect(() => {
+  const arr = [] as SdkMarker[]
+  props.markersData.forEach((m: MarkerInput) => {
+    arr.push({
+      id: m.id, latitude: m.latitude, longitude: m.longitude,
+      title: m.title, iconPath: m.iconPath, width: m.width, height: m.height
+    } as SdkMarker)
+  })
+  renderedMarkers.value = arr
+})
+```
+
+业务页面(`pages/index/index.uvue`)只用 `<checkin-map :markers-data="..." />`,
+**永远不接触 SDK Marker 类型**。业务态(`CheckinMarker[]`)→ MarkerInput 投影
+在业务页里完成,SDK 边界由 uni_modules 组件内部完成。
+
+---
+
+### 关键代码规范(从 5 轮失败提炼)
+
+| # | 规则 | 原因 |
+|---|------|------|
+| 1 | 业务类型不与 SDK 类型同名 | `Marker` 撞名 → ClassCastException |
+| 2 | SDK Marker 构造只能在 uni_modules `.uvue` 里 | app 命名空间合成 alias 冲突 |
+| 3 | 用全限定路径别名 `type SdkMarker = uts.sdk.modules....Marker` | 不直写 `Marker`,避免名字解析歧义 |
+| 4 | SDK 类型只在 `as` 后面出现 | 类型注解位置触发 namespace 合成 |
+| 5 | ref + watchEffect, 不要 computed | UTS computed 推不出复杂数组返回类型 |
+| 6 | forEach + push, 不要 .map() | UTS 把 .map() callback 返回认成 Unit |
+| 7 | iconPath 必须指向真实存在的资源 | 资源缺失 → setMarkers 静默跳过该 marker |
+| 8 | uni_modules 子组件 props 用本地命名 (MarkerInput),不接 CheckinMarker | 维持 namespace 隔离 |
 
 ---
 
@@ -395,3 +463,114 @@ fail: (err: any): void => { reject(err) }  // ✅ 不访问成员,只透传
 | `Condition type mismatch` | 编译 | `if (x != null)` |
 | `Null cannot be a value` | 编译 | `UTSJSONObject\|null` 或 boolean flag |
 | `Only safe (?.) or non-null (!!.)` | 编译 | `!!.` 或 `?.` |
+
+---
+
+## 七、2026-05-07 Marker 图标显示收尾补充
+
+### 7.1 跨命名空间 DTO 不能直接传给 `uni_modules` 组件
+
+**现象**
+
+页面编译通过，但真机启动时崩溃：
+
+```text
+java.lang.ClassCastException:
+  uni.UNIC0495C1.MarkerInput__1 cannot be cast to uni.UNIC0495C1.MarkerInput
+```
+
+**触发方式**
+
+- `pages/index/index.uvue` 或 `pages/tasks/tasks.uvue` 中定义本地 `type MarkerInput = { ... }`
+- 通过 props 把 `Array<MarkerInput>` 直接传给 `uni_modules/checkin-map`
+- `uni_modules` 内部再按自己的 `MarkerInput` 遍历
+
+**根因**
+
+UTS 编译到 Kotlin 后，`pages/*.uvue` 里的 `MarkerInput` 和 `uni_modules/*/*.uvue` 里的 `MarkerInput` 即使字段完全相同，也仍然是两个不同的名义类型。
+所以“对象数组跨命名空间透传，再在另一侧按本地 type 接收”会在运行时触发 `ClassCastException`。
+
+**错误示例**
+
+```ts
+// pages/index/index.uvue
+const markersData = computed((): Array<MarkerInput> => ...)
+<checkin-map :markers-data="markersData" />
+
+// uni_modules/checkin-map/checkin-map.uvue
+markersData: { type: Array as PropType<Array<MarkerInput>>, ... }
+props.markersData.forEach((m: MarkerInput) => ...)
+```
+
+**最终可用方案：字符串边界**
+
+页面层先序列化：
+
+```ts
+const markersJson = computed((): string => {
+  const arr = markers.value.map((m: CheckinMarker): MarkerInput => {
+    return {
+      id: m.id,
+      latitude: m.latitude,
+      longitude: m.longitude,
+      title: m.title,
+      iconPath: m.iconPath,
+      width: m.width,
+      height: m.height
+    } as MarkerInput
+  })
+  return JSON.stringify(arr)
+})
+```
+
+`uni_modules` 内部只接收 `String`，再在本命名空间解析：
+
+```ts
+const props = defineProps({
+  markersJson: { type: String, default: '[]' }
+})
+
+watchEffect(() => {
+  const arr = [] as SdkMarker[]
+  const parsed = JSON.parse<Array<MarkerInput>>(props.markersJson)
+  const safeMarkers = parsed != null ? parsed : [] as Array<MarkerInput>
+  safeMarkers.forEach((m: MarkerInput) => {
+    arr.push({
+      id: m.id,
+      latitude: m.latitude,
+      longitude: m.longitude,
+      title: m.title,
+      iconPath: m.iconPath,
+      width: m.width,
+      height: m.height
+    } as SdkMarker)
+  })
+  renderedMarkers.value = arr
+})
+```
+
+**规则沉淀**
+
+1. 页面层 DTO 传进 `uni_modules` 组件时，优先走 `String(JSON)` 边界。
+2. 不要把“字段一样的匿名对象数组”直接作为跨命名空间 props 传递。
+3. `uni_modules` 内部需要的本地类型，必须在本模块内重新解析或重新构造。
+4. 看到 `Xxx__1 cannot be cast to Xxx`，优先怀疑 UTS/Kotlin 名义类型冲突。
+
+### 7.2 Marker 图标资源路径要和仓库真实文件完全一致
+
+本项目当前真实资源为：
+
+```text
+/static/marker_default.png
+/static/marker_checked.webp
+```
+
+不是 `marker_checked.png`。
+
+排查图标不显示时，优先检查：
+
+1. 文件是否真的存在于 `static/`
+2. 代码里的扩展名是否完全一致
+3. 历史本地缓存的 marker 数据是否还保存着旧路径
+
+当前项目做法：`loadFromStorage()` 时统一纠正历史 `iconPath`，避免老缓存继续引用失效资源。

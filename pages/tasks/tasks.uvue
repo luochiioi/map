@@ -13,7 +13,7 @@
     </scroll-view>
     <view class="section-header"><text class="section-title">足迹地图</text></view>
     <view class="mini-map-container">
-      <map class="mini-map" :latitude="miniLat" :longitude="miniLng" :scale="miniScale" :enable-scroll="false" :enable-zoom="false" />
+      <checkin-map class="mini-map" map-id="tasksMiniMap" :latitude="miniLat" :longitude="miniLng" :scale="miniScale" :show-location="false" :markers-json="miniMarkersJson" />
     </view>
     <view class="filter-bar">
       <view v-for="f in filters" :key="f.key" class="filter-chip" :class="{ active: activeFilter === f.key }" @click="setFilter(f.key)">
@@ -45,6 +45,7 @@ import { requestFocus } from '@/stores/useMapStore'
 import type { CheckinMarker } from '@/types/marker'
 import type { FilterMode } from '@/types/app'
 import BadgeCard from '@/components/BadgeCard.uvue'
+import CheckinMap from '@/uni_modules/checkin-map/components/checkin-map/checkin-map.uvue'
 
 const activeFilter = ref<FilterMode>('all')
 const filters = [
@@ -61,6 +62,32 @@ const filteredMarkers = computed(() => {
 
 // TODO(下一会话 P1): 同 pages/index/index.uvue,缩略地图的 miniMapMarkers 暂时
 // 不绑 :markers,等 P1 解决 SDK Marker 边界后再恢复。详见 UTS_COMPILE_PITFALLS §F。
+
+// Mini map uses the same JSON boundary as the main map to avoid namespace cast errors.
+type MarkerInput = {
+  id: number
+  latitude: number
+  longitude: number
+  title: string
+  iconPath: string
+  width: number
+  height: number
+}
+
+const miniMarkersJson = computed((): string => {
+  const arr = markers.value.slice(0, 20).map((m: CheckinMarker): MarkerInput => {
+    return {
+      id: m.id,
+      latitude: m.latitude,
+      longitude: m.longitude,
+      title: m.title,
+      iconPath: m.iconPath,
+      width: m.width,
+      height: m.height
+    } as MarkerInput
+  })
+  return JSON.stringify(arr)
+})
 
 const miniLat = computed(() => { if (markers.value.length > 0) return markers.value[0].latitude; return 39.9163 })
 const miniLng = computed(() => { if (markers.value.length > 0) return markers.value[0].longitude; return 116.3972 })

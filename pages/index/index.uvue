@@ -13,7 +13,7 @@
       </view>
     </view>
 
-    <checkin-map map-id="mainMap" class="map-component" :latitude="latitude" :longitude="longitude" :scale="scale" :markers-data="markersData" :show-location="true" @markertap="onMarkerTap" @longpress="onMapLongPress" @regionchange="onRegionChange">
+    <checkin-map map-id="mainMap" class="map-component" :latitude="latitude" :longitude="longitude" :scale="scale" :markers-json="markersJson" :show-location="true" @markertap="onMarkerTap" @longpress="onMapLongPress" @regionchange="onRegionChange">
       <cover-view class="floating-add-btn" @click="goAddMarker">
         <cover-view class="add-icon">+</cover-view>
         <cover-view class="add-label">在此新增</cover-view>
@@ -77,8 +77,8 @@ function ensureMapCtx(): MapContext | null {
 //
 // 注意 1：UTS 5.07 推不出 computed 的返回类型（匿名 .map() 结果），必须显式声明。
 // 注意 2：MarkerInput 是本地命名类型，与 SDK 类型无重名，不会触发 namespace 合成歧义。
-// 注意 3：图标路径借 uni_modules/checkin-map/components/checkin-map/marker.png
-//          （项目 /static/ 没有真正的 marker 图标）。
+// Marker DTO lives in page namespace first, then crosses into uni_modules as JSON.
+// This avoids Kotlin nominal-type crashes such as MarkerInput__1 -> MarkerInput.
 type MarkerInput = {
   id: number
   latitude: number
@@ -89,20 +89,19 @@ type MarkerInput = {
   height: number
 }
 
-const MARKER_ICON = '/uni_modules/checkin-map/components/checkin-map/marker.png'
-
-const markersData = computed((): Array<MarkerInput> => {
-  return markers.value.map((m: CheckinMarker): MarkerInput => {
+const markersJson = computed((): string => {
+  const arr = markers.value.map((m: CheckinMarker): MarkerInput => {
     return {
       id: m.id,
       latitude: m.latitude,
       longitude: m.longitude,
       title: m.title,
-      iconPath: MARKER_ICON,
-      width: 36,
-      height: 36
+      iconPath: m.iconPath,
+      width: m.width,
+      height: m.height
     } as MarkerInput
   })
+  return JSON.stringify(arr)
 })
 
 const dist = computed(() => {

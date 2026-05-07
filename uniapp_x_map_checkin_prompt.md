@@ -155,7 +155,7 @@ map_new/
 ├── static/                           # 静态资源
 │   ├── logo.png
 │   ├── marker_default.png
-│   └── marker_checked.png
+│   └── marker_checked.webp
 │
 ├── uniCloud-aliyun/                  # 【保留并增强】云端服务
 │   ├── cloudfunctions/
@@ -1876,6 +1876,67 @@ page {
 > **现状（2026-05-07）**：`pages/index/index.uvue` 和 `pages/tasks/tasks.uvue`
 > 的 `<map>` 已**临时移除 `:markers` 绑定**，地图能渲染但看不到打卡点。
 > P1 任务：选定上面任一方案恢复打卡点显示。详见 `UTS_COMPILE_PITFALLS.md §F`。
+>
+> ---
+>
+> **🎯 P1 终极方案（2026-05-07 收尾，方案 B 实施完毕）**：
+>
+> 把腾讯地图 `<map>` 渲染 + SDK Marker[] 构造**整体下沉到 uni_modules 子组件**。
+> 涉及文件：
+>
+> - `uni_modules/checkin-map/package.json` — uni_modules 模块清单（uniapp x 必需）
+> - `uni_modules/checkin-map/components/checkin-map/checkin-map.uvue` — 包装组件本体
+> - `uni_modules/checkin-map/components/checkin-map/marker.png` — 临时 marker 图标（借自 uni-openLocation）
+> - `pages/index/index.uvue` — 用 `<checkin-map>` 替代 `<map>`，传普通 `MarkerInput[]` prop
+>
+> **为什么必须下沉**：app 命名空间（`uni.UNIC0495C1.*`）会**自动合成** `Marker` typealias，与 SDK 真身（`uts.sdk.modules.DCloudUniMapTencent.Marker`）名义类型冲突。在 `pages/`/`stores/` 下任何形式的 `as Marker` cast 都会触发 error17 或运行时静默不渲染。`uni_modules/` 子命名空间不参与该合成，所以 SDK Marker 构造能在那里跑通。
+>
+> **uni_modules 子组件内必须遵守的代码规范**（每条都对应一次 5.07 编译失败）：
+>
+> 1. `type SdkMarker = uts.sdk.modules.DCloudUniMapTencent.Marker` — 全限定路径别名
+> 2. props 用本地命名类型（MarkerInput），不接 app 业务类型 CheckinMarker
+> 3. SDK 类型**只**写在 `as` 后面，不写在 `:` 注解或 `<>` 泛型
+> 4. **ref + watchEffect**（不用 computed） — UTS 5.07 computed 推不出复杂数组返回类型
+> 5. **forEach + push**（不用 .map） — UTS 把 .map() callback 返回值识别为 Unit
+> 6. iconPath 必须指向真实存在的资源 — 缺资源会被腾讯插件静默跳过
+>
+> **业务页面侧规范**：
+>
+> ```html
+> <!-- 用包装组件,永远不接触 SDK Marker 类型 -->
+> <checkin-map :latitude="lat" :longitude="lng" :scale="scale"
+>              :markers-data="markersData"
+>              @markertap="..." @longpress="..." @regionchange="..." />
+> ```
+>
+> ```ts
+> // 业务态 CheckinMarker[] 投影成普通 MarkerInput[](无 SDK 类型),
+> // 喂给子组件 prop。MarkerInput 是本地名,与 SDK 不冲突,可安全做完整类型注解。
+> type MarkerInput = {
+>   id: number, latitude: number, longitude: number,
+>   title: string, iconPath: string, width: number, height: number
+> }
+>
+> const markersData = computed((): Array<MarkerInput> => {
+>   return markers.value.map((m: CheckinMarker): MarkerInput => {
+>     return {...} as MarkerInput
+>   })
+> })
+> ```
+>
+> **教训总结（5.07 实测,后续会话务必避免）**：
+>
+> | 死路 | 失败方式 |
+> |------|----------|
+> | typed `Marker[]`(与 SDK 同名) | 运行时 ClassCastException |
+> | `displayMarkers: UTSJSONObject[]` 兜底 | 运行时 setMarkers 强转拒 UTSJSONObject |
+> | `.uts` store 内构造 SDK Marker | 编译 error17 |
+> | `.uvue` 业务页内任何形式的 `as Marker` | 编译 error17 / Return type mismatch / 运行静默不渲染 |
+> | `as SdkMarker` 全限定别名 + `<map :markers>` 业务页 | 编译过,运行静默不渲染 |
+> | `.map(m => ({...} as SdkMarker))` 在 uni_modules 内 | UTSArray<Unit> mismatch |
+> | iconPath 引用不存在的 png 文件 | 静默无图标 |
+>
+> 所有路径都已被本项目实测验证。新功能开发前先读 `UTS_COMPILE_PITFALLS.md §F`。
 
 ---
 
@@ -2824,6 +2885,17 @@ const cloudURL = uploadData["cloudURL"] as string
 ---
 
 ## 十五、更新后的验证清单
+
+### 15.0 Phase 1 当前真实状态（2026-05-07）
+
+- 地图 marker 图标显示链路已打通：页面侧通过 `markersJson` 传给 `uni_modules/checkin-map`，组件内部再解析并构造 SDK Marker，避免 UTS/Kotlin 跨命名空间 DTO 强转崩溃。
+- 当前静态资源以仓库真实文件为准：`/static/marker_default.png` 与 `/static/marker_checked.webp`。
+- “无法打卡”不代表功能未实现。现有代码已经实现首页可打卡判断、打卡页二次距离校验、照片上传、云端 checkin 调用以及失败时离线入队。
+- 真机上若暂时无法打卡，优先排查：
+  1. 是否已获取有效 GPS 位置
+  2. 是否真的进入打卡点半径内（默认 500m，精度差时会放宽）
+  3. `marker-center.checkin()` 云端是否已部署并可调用
+- 在上述主链路真机验收完成前，不建议直接进入 Phase 2。更合适的顺序是：先完成 P1 收尾验收，再开始双城与剧情迭代。
 
 - [ ] 所有 UTS 文件通过 HBuilderX 编译检查
 - [ ] uniCloud 服务空间创建并关联项目

@@ -4,6 +4,9 @@ import { loadMarkers, saveMarkers } from '@/utils/storage'
 import { getDefaultMarkers } from '@/utils/defaults'
 import { syncMarkers } from '@/utils/cloudSync'
 
+const DEFAULT_MARKER_ICON = '/static/marker_default.png'
+const CHECKED_MARKER_ICON = '/static/marker_checked.webp'
+
 export const markers = ref<CheckinMarker[]>([])
 export const isLoading = ref<boolean>(false)
 
@@ -31,6 +34,9 @@ export async function loadFromStorage(): Promise<void> {
     stored = getDefaultMarkers()
     saveMarkers(stored)
   }
+  stored.forEach((m: CheckinMarker) => {
+    m.iconPath = m.checked ? CHECKED_MARKER_ICON : DEFAULT_MARKER_ICON
+  })
   markers.value = stored
   isLoading.value = false
 }
@@ -49,7 +55,7 @@ export async function addMarker(input: NewMarkerInput): Promise<CheckinMarker> {
     checked: false,
     width: 36,
     height: 36,
-    iconPath: '/static/marker_default.png',
+    iconPath: DEFAULT_MARKER_ICON,
     createdAt: Date.now()
   }
   markers.value.push(marker)
@@ -62,7 +68,7 @@ export async function doCheckIn(markerId: number, photoPath: string | null, note
   if (idx === -1) throw new Error('CheckinMarker not found: ' + markerId)
   markers.value[idx].checked = true
   markers.value[idx].checkedAt = Date.now()
-  markers.value[idx].iconPath = '/static/marker_checked.png'
+  markers.value[idx].iconPath = CHECKED_MARKER_ICON
   if (photoPath != null) markers.value[idx].photoPath = photoPath
   if (note != null) markers.value[idx].note = note
   persist()
