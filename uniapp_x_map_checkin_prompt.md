@@ -1829,6 +1829,21 @@ page {
 > **何时 `.prop` vs `["prop"]`？** 见 `UTS_COMPILE_PITFALLS.md` 第四章对照表。
 >
 > **后续所有 .uvue/.uts 文件编写前必须查阅该文档**，先读 `UTS_COMPILE_PITFALLS.md` §Phase 1.5。
+>
+> **🚨 命名约定（强制，2026-05-07 因 SDK 类型碰撞踩坑后定）：**
+>
+> 应用业务类型必须避开 SDK 通用类型名。以下是对照表，**新文件 / 重构必须遵守**：
+>
+> | ❌ 禁用（与 SDK 撞名） | ✅ 必须用 |
+> |----------------------|----------|
+> | `Marker` | `CheckinMarker` |
+> | `Task` | `AppTask` 或 `CheckinTask` |
+> | `User` | `AppUser` |
+> | `Location` | `LocationData`（已用） |
+> | `Region` | `MapRegion` |
+> | `Event` | `AppEvent` 或具体名 |
+>
+> **理由**：腾讯地图、uniCloud、uni-id 等 SDK 各自定义同名类型，在 UTS Kotlin 名义类型下会触发 ClassCastException，且 Vue reactive 包装一层后包装类（`MarkerReactiveObject`）仍被拒。一旦撞名只能重命名，治标的边界转换都无效。
 
 ---
 

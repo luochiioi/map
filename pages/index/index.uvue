@@ -150,25 +150,29 @@ function goTasks(): void { uni.navigateTo({ url: '/pages/tasks/tasks' }) }
 function doZoomIn(): void { zoomIn() }
 function doZoomOut(): void { zoomOut() }
 
-// Locate: prefer MapContext.moveToLocation() — when both lat/lng are omitted, native
-// uses the show-location blue dot directly with built-in animation. Falls back to
-// the GPS ref if context is unavailable, plus a toast if GPS hasn't fixed yet.
+// Locate: 让定位按钮在移动到 GPS 的同时把地图缩放到街道级（scale=17）。
+// 17 适合"找到附近 200-500m 内的打卡点"这种用例；用户能看到周围的 markers
+// 而不会因为缩放过远变成只能看见自己。
+const LOCATE_SCALE: number = 17
 function goLocate(): void {
   const ctx = ensureMapCtx()
   if (ctx != null) {
     ctx.moveToLocation({
-      success: (): void => {},
+      success: (): void => {
+        // ctx.moveToLocation 不接受 scale 参数，所以中心移动后单独设 scale ref
+        scale.value = LOCATE_SCALE
+      },
       fail: (): void => {
-        // ctx call failed → fallback to manual ref-based move
+        // ctx 调用失败 → 回落到 ref 驱动的 moveToLocation（同时设 scale）
         const loc = currentLocation.value
-        if (loc != null) moveToLocation(loc.latitude, loc.longitude)
+        if (loc != null) moveToLocation(loc.latitude, loc.longitude, LOCATE_SCALE)
         else uni.showToast({ title: '定位中，请稍候', icon: 'none' })
       }
     })
     return
   }
   const loc = currentLocation.value
-  if (loc != null) moveToLocation(loc.latitude, loc.longitude)
+  if (loc != null) moveToLocation(loc.latitude, loc.longitude, LOCATE_SCALE)
   else uni.showToast({ title: '定位中，请稍候', icon: 'none' })
 }
 function doDelete(): void {

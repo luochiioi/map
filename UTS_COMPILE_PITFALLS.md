@@ -145,8 +145,17 @@ export const displayMarkers = computed<UTSJSONObject[]>(() => {
 
 **通用规则**:
 1. **app 的 type 名不要和已知 SDK type 重合**(Marker/Task/User/Location 等通用名优先重命名为 `CheckinMarker` / `AppTask` / `AppUser` / `LocationData`)
-2. **SDK prop 边界全部走 UTSJSONObject**——SDK 接受的"动态对象"是动态字段读取,UTSJSONObject 通过;而 typed 类即使字段相同也会被名义检查拒收
+2. **SDK prop 边界:UTSJSONObject 兜底也未必管用**——后续 logcat 显示腾讯插件的 setMarkers 即使收到 UTSJSONObject 也直接 `as Marker` 拒绝(`io.dcloud.uts.UTSJSONObject cannot be cast to ...Marker`)。**真正的解法是给 SDK 类型预留命名空间**,即应用层主动重命名,让 SDK type 名在 UTS 文件中唯一可见
 3. **诊断顺序**:看到"莫名空白 + 卡死"时,先看 logcat 全栈,再看代码。Vue 渲染失败默认静默,只有 logcat 暴露真因
+4. **Vue reactive 给响应式对象加包装名 `XxxReactiveObject`**——所以即使我们的 typed Marker 通过了第一层检查,Vue 包装后还是 "MarkerReactiveObject" 不是 "Marker",仍会被 SDK 名义检查拒。**重命名是唯一治本路径**
+
+**重命名的实际改动量**(参考):
+- `types/marker.uts` (类型 export)
+- `stores/useMarkerStore.uts` + 4 个其他 stores
+- `utils/storage.uts` + `utils/defaults.uts` + `utils/cloudSync.uts`
+- 6 个 `.uvue` 页面的 import + 类型注解
+
+机械式重命名,risk 低,~15 min。一次做完,以后写 `const m: Marker = ...` 自动指向 SDK 的 Marker。
 
 ---
 
