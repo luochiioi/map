@@ -1,6 +1,18 @@
 # UTS 编译避坑指南 — uni-app x 地图打卡项目
 
-> **本文档来自 Phase 1（会话 1-8）Android 真机编译实战验证（截至第 6 轮修复，20+ 编译错误）。后续各 Phase 及迭代写代码前务必遵守。**
+> **本文档来自 Phase 1（会话 1-8）Android 真机编译实战验证（截至第 10+ 轮修复，25+ 编译错误）。后续各 Phase 及迭代写代码前务必遵守。**
+
+---
+
+## 零、黄金法则（先读这个！）
+
+| # | 法则 | 理由 |
+|---|------|------|
+| **1** | **永远用 `UTSJSONObject` + `["prop"]`，不用 `Record<string, T>`** | UTS 的 `Record` = Kotlin `Map`，不支持 `.prop` 和展开运算符 |
+| **2** | **永远用直接 `export const/function`，不用 `defineStore`** | UTS 不支持 Pinia 模块，且泛型/闭包/any 均不可靠 |
+| **3** | **永远用 `as any as Type` 双 cast 跨越类型屏障** | UTS 类型系统严格，单层 `as` 经常不够 |
+| **4** | **所有函数引用必须 lambda 包装** | `{ fn: fn }` 触发 "Function invocation expected" |
+| **5** | **用 Write 工具写文件，永远不用 PowerShell** | PS `Set-Content` 截断 UTF-8 多字节字符 |
 
 ---
 
