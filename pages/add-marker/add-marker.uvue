@@ -1,13 +1,13 @@
 <template>
   <view class="add-page">
     <view class="source-tabs">
-      <view class="tab-chip" :class="{ active: activeSource === 'center' }" @click="setSource('center')">
+      <view class="tab-chip" :class="{ active: activeSource === 'center' }" @click="pickSource('center')">
         <text class="tab-chip-text">地图中心</text>
       </view>
-      <view class="tab-chip" :class="{ active: activeSource === 'current' }" @click="setSource('current')">
+      <view class="tab-chip" :class="{ active: activeSource === 'current' }" @click="pickSource('current')">
         <text class="tab-chip-text">当前位置</text>
       </view>
-      <view class="tab-chip" :class="{ active: activeSource === 'manual' }" @click="setSource('manual')">
+      <view class="tab-chip" :class="{ active: activeSource === 'manual' }" @click="pickSource('manual')">
         <text class="tab-chip-text">手动输入</text>
       </view>
     </view>
@@ -34,18 +34,16 @@
     </view>
 
     <view class="submit-section">
-      <button class="submit-btn" hover-class="btn-hover" @click="submitHandler">添加打卡点</button>
+      <button class="submit-btn" hover-class="btn-hover" @click="doSubmit">添加打卡点</button>
     </view>
   </view>
 </template>
 
 <script setup lang="uts">
 import { ref, onShow } from 'vue'
-import { useMarkerStore, useLocationStore } from '@/stores/compat'
+import { addMarker } from '@/stores/useMarkerStore'
+import { currentLocation, pollLocationOnce } from '@/stores/useLocationStore'
 import { enqueueAction } from '@/utils/cloudSync'
-
-const markerStore = useMarkerStore()
-const locationStore = useLocationStore()
 
 type CoordSource = 'center' | 'current' | 'manual'
 const activeSource = ref<CoordSource>('center')
@@ -54,10 +52,10 @@ const formTitle = ref<string>('')
 const formLat = ref<string>('')
 const formLng = ref<string>('')
 
-let centerLatFromMap = ''
-let centerLngFromMap = ''
-let currentLatFromMap = ''
-let currentLngFromMap = ''
+let centerLatFromMap: string = ''
+let centerLngFromMap: string = ''
+let currentLatFromMap: string = ''
+let currentLngFromMap: string = ''
 
 function getQuery(): UTSJSONObject {
   const pages = getCurrentPages()
@@ -66,42 +64,41 @@ function getQuery(): UTSJSONObject {
   return pg != null ? pg["options"] as UTSJSONObject : {} as UTSJSONObject
 }
 
+function pickSource(source: CoordSource): void {
+  activeSource.value = source
+  if (source === 'center') {
+    formLat.value = centerLatFromMap
+    formLng.value = centerLngFromMap
+  } else if (source === 'current') {
+    const loc = currentLocation.value
+    if (loc != null) {
+      formLat.value = '' + loc.latitude
+      formLng.value = '' + loc.longitude
+    } else if (currentLatFromMap.length > 0) {
+      formLat.value = currentLatFromMap
+      formLng.value = currentLngFromMap
+    }
+    pollLocationOnce().then((loc: any): void => {
+      formLat.value = '' + (loc as any).latitude
+      formLng.value = '' + (loc as any).longitude
+    })
+  }
+}
+
 onShow((): void => {
   const query = getQuery()
   centerLatFromMap = (query["centerLat"] as string) ?? ''
   centerLngFromMap = (query["centerLng"] as string) ?? ''
   currentLatFromMap = (query["currentLat"] as string) ?? ''
   currentLngFromMap = (query["currentLng"] as string) ?? ''
-  setSource('center')
+  pickSource('center')
 })
 
-function setSource(source: CoordSource): void {
-  activeSource.value = source
-  if (source === 'center') {
-    formLat.value = centerLatFromMap
-    formLng.value = centerLngFromMap
-  } else if (source === 'current') {
-    const loc = locationStore.currentLocation
-    if (loc) {
-      formLat.value = String(loc.latitude)
-      formLng.value = String(loc.longitude)
-    } else if (currentLatFromMap) {
-      formLat.value = currentLatFromMap
-      formLng.value = currentLngFromMap
-    }
-    locationStore.pollLocationOnce().then((loc) => {
-      formLat.value = String(loc.latitude)
-      formLng.value = String(loc.longitude)
-    })
-  }
-}
-
-async function submitHandler(): Promise<void> {
-  if (formTitle.value.trim() == '') {
+async function doSubmit(): Promise<void> {
+  if (formTitle.value.trim().length == 0) {
     uni.showToast({ title: '请输入地点名称', icon: 'none' })
     return
   }
-
   const lat = parseFloat(formLat.value)
   const lng = parseFloat(formLng.value)
 
@@ -111,28 +108,13 @@ async function submitHandler(): Promise<void> {
   }
 
   try {
-    await markerStore.addMarker({
-      title: formTitle.value.trim(),
-      latitude: lat,
-      longitude: lng
-    })
-
+    await addMarker({ title: formTitle.value.trim(), latitude: lat, longitude: lng })
     try {
       const markerApi = uniCloud.importObject('marker-center')
-      await markerApi.add({
-        title: formTitle.value.trim(),
-        latitude: lat,
-        longitude: lng
-      })
+      await markerApi.add({ title: formTitle.value.trim(), latitude: lat, longitude: lng })
     } catch (e) {
-      console.log('Cloud add failed, queuing for later sync', e)
-      enqueueAction('add_marker', {
-        title: formTitle.value.trim(),
-        latitude: lat,
-        longitude: lng
-      })
+      enqueueAction('add_marker', { title: formTitle.value.trim(), latitude: lat, longitude: lng })
     }
-
     uni.showToast({ title: '添加成功', icon: 'success' })
     setTimeout(() => uni.navigateBack(), 800)
   } catch (e) {
@@ -146,7 +128,6 @@ async function submitHandler(): Promise<void> {
   flex: 1;
   background-color: #f5f7f5;
 }
-
 .source-tabs {
   display: flex;
   flex-direction: row;
@@ -154,7 +135,6 @@ async function submitHandler(): Promise<void> {
   background-color: #ffffff;
   border-bottom: 1rpx solid #e8ece8;
 }
-
 .tab-chip {
   flex: 1;
   height: 64rpx;
@@ -165,91 +145,27 @@ async function submitHandler(): Promise<void> {
   justify-content: center;
   margin-right: 16rpx;
 }
-
-.tab-chip:last-child {
-  margin-right: 0;
-}
-
-.tab-chip-text {
-  font-size: 26rpx;
-  color: #888888;
-}
-
-.tab-chip.active {
-  background-color: #2ecc71;
-}
-
-.tab-chip.active .tab-chip-text {
-  color: #ffffff;
-  font-weight: 500;
-}
-
-.form-section {
-  padding: 32rpx;
-}
-
-.form-group {
-  margin-bottom: 32rpx;
-}
-
-.form-label {
-  font-size: 26rpx;
-  color: #666666;
-  margin-bottom: 12rpx;
-}
-
+.tab-chip:last-child { margin-right: 0; }
+.tab-chip-text { font-size: 26rpx; color: #888888; }
+.tab-chip.active { background-color: #2ecc71; }
+.tab-chip.active .tab-chip-text { color: #ffffff; font-weight: 500; }
+.form-section { padding: 32rpx; }
+.form-group { margin-bottom: 32rpx; }
+.form-label { font-size: 26rpx; color: #666666; margin-bottom: 12rpx; }
 .form-input {
-  width: 100%;
-  height: 80rpx;
-  background-color: #ffffff;
-  border-radius: 12rpx;
-  padding: 0 20rpx;
-  font-size: 30rpx;
-  color: #333333;
-  box-sizing: border-box;
+  width: 100%; height: 80rpx; background-color: #ffffff;
+  border-radius: 12rpx; padding: 0 20rpx; font-size: 30rpx; color: #333333; box-sizing: border-box;
 }
-
-.form-input-mono {
-  font-family: monospace;
-  font-size: 28rpx;
-}
-
-.form-input:disabled {
-  background-color: #f8f8f8;
-  color: #999999;
-}
-
-.input-placeholder {
-  color: #bbbbbb;
-  font-size: 26rpx;
-}
-
-.source-info {
-  padding: 0 32rpx;
-}
-
-.info-text {
-  font-size: 24rpx;
-  color: #aaaaaa;
-}
-
-.submit-section {
-  padding: 40rpx 32rpx;
-}
-
+.form-input-mono { font-family: monospace; font-size: 28rpx; }
+.form-input:disabled { background-color: #f8f8f8; color: #999999; }
+.input-placeholder { color: #bbbbbb; font-size: 26rpx; }
+.source-info { padding: 0 32rpx; }
+.info-text { font-size: 24rpx; color: #aaaaaa; }
+.submit-section { padding: 40rpx 32rpx; }
 .submit-btn {
-  width: 100%;
-  height: 96rpx;
-  background-color: #2ecc71;
-  color: #ffffff;
-  font-size: 34rpx;
-  font-weight: bold;
-  border-radius: 48rpx;
+  width: 100%; height: 96rpx; background-color: #2ecc71; color: #ffffff;
+  font-size: 34rpx; font-weight: bold; border-radius: 48rpx;
   box-shadow: 0 8rpx 24rpx rgba(46, 204, 113, 0.35);
 }
-
-.btn-hover {
-  opacity: 0.9;
-  transform: translateY(2rpx);
-}
+.btn-hover { opacity: 0.9; transform: translateY(2rpx); }
 </style>
