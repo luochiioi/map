@@ -73,21 +73,22 @@ function ensureMapCtx(): MapContext | null {
 }
 
 // displayMarkers — 默认 8 个打卡点的 SDK Marker[]。
-// 严格照搬 uni_modules/uni-openLocation/pages/openLocation/openLocation.uvue 的写法：
-//   ref([...字面量数组...] as Marker[])
-// 不要用 .map() / forEach + push / computed —— 这些都会触发 UTS 编译器对
-// `Marker` 的命名空间反向推导歧义（详见 UTS_COMPILE_PITFALLS §F 的 5 种失败对照表）。
-// 字面量数组 + 双 cast 是已知能跑通的唯一形式。
+// 关键：不要用 `Marker` 这个名字 —— UTS 5.07 会在 cast 位置和 ref<> 推导位置
+// 把它解析到不同 namespace（详见 UTS_COMPILE_PITFALLS §F）。
+// 用全限定路径自定义别名 SdkMarker —— 这个名字在 SDK 里不存在，编译器不会
+// 合成 `uni.UNIC0495C1.SdkMarker`，cast 唯一指向 SDK 真身，避开命名空间歧义。
+type SdkMarker = uts.sdk.modules.DCloudUniMapTencent.Marker
+
 const displayMarkers = ref([
-  { id: 1, latitude: 39.9163, longitude: 116.3972, title: '北京故宫', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
-  { id: 2, latitude: 31.1465, longitude: 121.6593, title: '上海迪士尼', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
-  { id: 3, latitude: 28.1836, longitude: 112.9388, title: '长沙岳麓书院', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
-  { id: 4, latitude: 22.1979, longitude: 113.5413, title: '澳门大三巴', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
-  { id: 5, latitude: 28.1968, longitude: 112.9625, title: '长沙橘子洲', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
-  { id: 6, latitude: 23.1065, longitude: 113.3246, title: '广州塔', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
-  { id: 7, latitude: 23.0622, longitude: 113.3894, title: '中山大学东校区', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
-  { id: 8, latitude: 39.9505, longitude: 116.3474, title: '北京交通大学', iconPath: '/static/marker_default.png', width: 36, height: 36 } as Marker,
-] as Marker[])
+  { id: 1, latitude: 39.9163, longitude: 116.3972, title: '北京故宫', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
+  { id: 2, latitude: 31.1465, longitude: 121.6593, title: '上海迪士尼', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
+  { id: 3, latitude: 28.1836, longitude: 112.9388, title: '长沙岳麓书院', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
+  { id: 4, latitude: 22.1979, longitude: 113.5413, title: '澳门大三巴', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
+  { id: 5, latitude: 28.1968, longitude: 112.9625, title: '长沙橘子洲', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
+  { id: 6, latitude: 23.1065, longitude: 113.3246, title: '广州塔', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
+  { id: 7, latitude: 23.0622, longitude: 113.3894, title: '中山大学东校区', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
+  { id: 8, latitude: 39.9505, longitude: 116.3474, title: '北京交通大学', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
+] as SdkMarker[])
 
 const dist = computed(() => {
   const m = activeMarker.value
