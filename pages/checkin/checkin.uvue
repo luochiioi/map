@@ -2,38 +2,32 @@
   <view class="checkin-page">
     <view class="header">
       <text class="marker-title">{{ markerTitle }}</text>
-      <text class="marker-coord" v-if="marker">
+      <text class="marker-coord" v-if="marker != null">
         {{ marker.latitude.toFixed(6) }}, {{ marker.longitude.toFixed(6) }}
       </text>
     </view>
-
     <view class="gps-section">
       <view class="gps-card" :class="withinRange ? 'in-range' : 'out-range'">
         <text class="gps-label">{{ withinRange ? '在打卡范围内' : '距离过远' }}</text>
         <text class="gps-distance" v-if="distance != null">{{ formatDistance(distance) }}</text>
-        <text class="gps-accuracy">{{ locationStore.accuracyText }}</text>
+        <text class="gps-accuracy">{{ accuracyText.value }}</text>
       </view>
     </view>
-
     <view class="photo-section">
       <view class="photo-preview" @click="choosePhoto">
-        <image v-if="photoPath" :src="photoPath" class="photo-image" />
+        <image v-if="photoPath != null" :src="photoPath" class="photo-image" />
         <view v-else class="photo-placeholder">
           <text class="photo-icon">📷</text>
           <text class="photo-hint">点击拍照或选择照片</text>
         </view>
       </view>
-      <text class="compress-hint" v-if="isCompressing">压缩中...</text>
     </view>
-
     <view class="note-section">
       <text class="note-label">打卡备注（选填）</text>
       <textarea class="note-input" v-model="note" placeholder="记录此刻的心情..." placeholder-class="note-placeholder" maxlength="200" />
-      <text class="note-count">{{ note.length }}/200</text>
     </view>
-
     <view class="submit-section">
-      <button class="submit-btn" :class="{ disabled: !canSubmit }" :disabled="!canSubmit" hover-class="btn-hover" @click="submitCheckIn">
+      <button class="submit-btn" :class="{ disabled: canSubmit == false }" hover-class="btn-hover" @click="doSubmit">
         {{ isSubmitting ? '打卡中...' : '确认打卡' }}
       </button>
     </view>
@@ -42,53 +36,53 @@
 
 <script setup lang="uts">
 import { ref, computed, onShow, onHide } from 'vue'
-import { useMarkerStore, useLocationStore, useTaskStore } from '@/stores/compat'
+import { findById, doCheckIn } from '@/stores/useMarkerStore'
+import { currentLocation, accuracy, startPolling, stopPolling, distanceTo } from '@/stores/useLocationStore'
+import { checkTaskCompletion } from '@/stores/useTaskStore'
 import { formatDistance } from '@/utils/format'
 import { enqueueAction } from '@/utils/cloudSync'
-
-const markerStore = useMarkerStore()
-const locationStore = useLocationStore()
-const taskStore = useTaskStore()
 
 const markerId = ref<number>(0)
 const markerTitle = ref<string>('')
 const photoPath = ref<string | null>(null)
 const cloudURL = ref<string | null>(null)
 const note = ref<string>('')
-const isCompressing = ref<boolean>(false)
 const isSubmitting = ref<boolean>(false)
 
-const marker = computed(() => markerStore.findById(markerId.value))
+const marker = computed(() => findById(markerId.value))
 
 const distance = computed(() => {
-  if (!marker.value || !locationStore.currentLocation) return null
-  return locationStore.distanceTo(marker.value.latitude, marker.value.longitude)
+  const m = marker.value
+  const loc = currentLocation.value
+  if (m == null || loc == null) return null
+  return distanceTo(m.latitude, m.longitude)
 })
 
 const effectiveRadius = computed(() => {
-  return 500 + Math.min(locationStore.accuracy * 0.5, 200)
+  return 500 + Math.min(accuracy.value * 0.5, 200)
 })
 
 const withinRange = computed(() => {
-  return distance.value !== null && distance.value <= effectiveRadius.value
+  const d = distance.value
+  return d != null && d <= effectiveRadius.value
 })
 
 const canSubmit = computed(() => {
-  return withinRange.value && !isSubmitting.value
+  return withinRange.value && isSubmitting.value == false
 })
 
 onShow((): void => {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as UTSJSONObject
   const pg = currentPage["$page"] as UTSJSONObject
-  const query = pg != null ? pg["options"] as UTSJSONObject : {}
+  const query = pg != null ? pg["options"] as UTSJSONObject : {} as UTSJSONObject
   markerId.value = parseInt((query["id"] as string) ?? '0')
   markerTitle.value = decodeURIComponent((query["title"] as string) ?? '')
-  locationStore.startPolling(5000)
+  startPolling(5000)
 })
 
 onHide((): void => {
-  locationStore.stopPolling()
+  stopPolling()
 })
 
 async function choosePhoto(): Promise<void> {
@@ -97,17 +91,9 @@ async function choosePhoto(): Promise<void> {
     success: async (res: any) => {
       const sourceType = res.tapIndex === 0 ? ['camera'] : ['album']
       uni.chooseImage({
-        count: 1,
-        sizeType: ['compressed'],
-        sourceType: sourceType,
+        count: 1, sizeType: ['compressed'], sourceType: sourceType,
         success: async (imgRes: any) => {
-          let path: string = imgRes.tempFilePaths[0] as string
-          const fileInfo = await getFileInfoAsync(path)
-          if ((fileInfo as any).size > 1024 * 1024) {
-            isCompressing.value = true
-            path = await compressImageAsync(path)
-            isCompressing.value = false
-          }
+          const path: string = imgRes.tempFilePaths[0] as string
           photoPath.value = path
         }
       })
@@ -115,12 +101,12 @@ async function choosePhoto(): Promise<void> {
   })
 }
 
-async function submitCheckIn(): Promise<void> {
-  if (!withinRange.value || !marker.value) return
+async function doSubmit(): Promise<void> {
+  if (withinRange.value == false || marker.value == null) return
   isSubmitting.value = true
 
   try {
-    if (photoPath.value) {
+    if (photoPath.value != null) {
       try {
         const fs = uni.getFileSystemManager()
         const base64Data = fs.readFileSync(photoPath.value, 'base64') as string
@@ -131,9 +117,7 @@ async function submitCheckIn(): Promise<void> {
         }) as UTSJSONObject
         const uploadData = uploadRes["data"] as UTSJSONObject
         cloudURL.value = uploadData["cloudURL"] as string
-      } catch (e) {
-        console.log('Photo upload failed, continuing with local only', e)
-      }
+      } catch (e) { console.log('Photo upload failed', e) }
     }
 
     try {
@@ -142,215 +126,64 @@ async function submitCheckIn(): Promise<void> {
         markerId: markerId.value,
         photoCloudURL: cloudURL.value,
         note: note.value != '' ? note.value : null,
-        latitude: locationStore.currentLocation?.latitude,
-        longitude: locationStore.currentLocation?.longitude
+        latitude: currentLocation.value?.latitude,
+        longitude: currentLocation.value?.longitude
       }) as UTSJSONObject
-      const errCode = checkinRes["errCode"] as number
-      if (errCode !== 0) {
-        const errMsg = checkinRes["errMsg"] as string
-        uni.showToast({ title: errMsg, icon: 'none' })
+      if ((checkinRes["errCode"] as number) !== 0) {
+        uni.showToast({ title: checkinRes["errMsg"] as string, icon: 'none' })
         isSubmitting.value = false
         return
       }
     } catch (e) {
-      console.log('Cloud checkin failed, queuing for later sync', e)
-      enqueueAction('checkin', {
-        markerId: markerId.value,
-        photoCloudURL: cloudURL.value,
-        note: note.value != '' ? note.value : null,
-        latitude: locationStore.currentLocation?.latitude,
-        longitude: locationStore.currentLocation?.longitude
-      })
+      const payload = JSON.parse('{}') as UTSJSONObject
+      payload["markerId"] = markerId.value; payload["photoCloudURL"] = cloudURL.value
+      payload["note"] = note.value; payload["latitude"] = currentLocation.value?.latitude
+      payload["longitude"] = currentLocation.value?.longitude
+      enqueueAction('checkin', payload)
     }
 
-    await markerStore.doCheckIn(markerId.value, photoPath.value, note.value != '' ? note.value : null)
-    const completed = taskStore.checkTaskCompletion(marker.value)
-
+    await doCheckIn(markerId.value, photoPath.value, note.value != '' ? note.value : null)
+    const completed = checkTaskCompletion(marker.value)
     uni.showToast({ title: '打卡成功！', icon: 'success' })
-    if (completed && completed.length > 0) {
-      setTimeout(() => {
+    if (completed.length > 0) {
+      setTimeout((): void => {
         uni.showToast({ title: `完成任务：${completed[0].name}`, icon: 'none' })
       }, 1000)
     }
-    setTimeout(() => uni.navigateBack(), 1500)
+    setTimeout((): void => { uni.navigateBack() }, 1500)
   } catch (e) {
     uni.showToast({ title: '打卡失败', icon: 'error' })
     isSubmitting.value = false
   }
 }
-
-function getFileInfoAsync(path: string): Promise<UTSJSONObject> {
-  return new Promise((resolve) => {
-    uni.getFileInfo({ filePath: path, success: (res: any) => resolve(res) })
-  })
-}
-
-function compressImageAsync(path: string): Promise<string> {
-  return new Promise((resolve) => {
-    uni.compressImage({ src: path, quality: 80, success: (res: any) => resolve(res.tempFilePath) })
-  })
-}
 </script>
 
 <style>
-.checkin-page {
-  flex: 1;
-  background-color: #f5f7f5;
-}
-
-.header {
-  padding: 40rpx 32rpx 24rpx;
-  background-color: #ffffff;
-  border-bottom: 1rpx solid #e8ece8;
-}
-
-.marker-title {
-  font-size: 40rpx;
-  font-weight: bold;
-  color: #1a1a1a;
-}
-
-.marker-coord {
-  font-size: 24rpx;
-  color: #999999;
-  font-family: monospace;
-  margin-top: 8rpx;
-}
-
-.gps-section {
-  padding: 24rpx 32rpx;
-}
-
-.gps-card {
-  padding: 24rpx;
-  border-radius: 16rpx;
-  display: flex;
-  flex-direction: column;
-}
-
-.gps-card.in-range {
-  background-color: #e6f9ed;
-}
-
-.gps-card.out-range {
-  background-color: #fde8e8;
-}
-
-.gps-label {
-  font-size: 28rpx;
-  font-weight: 500;
-}
-
+.checkin-page { flex: 1; background-color: #f5f7f5; }
+.header { padding: 40rpx 32rpx 24rpx; background-color: #ffffff; border-bottom: 1rpx solid #e8ece8; }
+.marker-title { font-size: 40rpx; font-weight: bold; color: #1a1a1a; }
+.marker-coord { font-size: 24rpx; color: #999999; font-family: monospace; margin-top: 8rpx; }
+.gps-section { padding: 24rpx 32rpx; }
+.gps-card { padding: 24rpx; border-radius: 16rpx; display: flex; flex-direction: column; }
+.gps-card.in-range { background-color: #e6f9ed; }
+.gps-card.out-range { background-color: #fde8e8; }
+.gps-label { font-size: 28rpx; font-weight: 500; }
 .in-range .gps-label { color: #27ae60; }
 .out-range .gps-label { color: #e74c3c; }
-
-.gps-distance {
-  font-size: 36rpx;
-  font-weight: bold;
-  color: #333333;
-}
-
-.gps-accuracy {
-  font-size: 24rpx;
-  color: #888888;
-}
-
-.photo-section {
-  padding: 0 32rpx 24rpx;
-}
-
-.photo-preview {
-  width: 200rpx;
-  height: 200rpx;
-  border-radius: 24rpx;
-  overflow: hidden;
-  background-color: #ffffff;
-  border: 2rpx dashed #cccccc;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.photo-image {
-  width: 100%;
-  height: 100%;
-}
-
-.photo-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.photo-icon {
-  font-size: 48rpx;
-}
-
-.photo-hint {
-  font-size: 22rpx;
-  color: #999999;
-}
-
-.compress-hint {
-  font-size: 22rpx;
-  color: #f39c12;
-  margin-top: 8rpx;
-}
-
-.note-section {
-  padding: 0 32rpx 24rpx;
-}
-
-.note-label {
-  font-size: 26rpx;
-  color: #666666;
-  margin-bottom: 12rpx;
-}
-
-.note-input {
-  width: 100%;
-  height: 160rpx;
-  background-color: #ffffff;
-  border-radius: 12rpx;
-  padding: 20rpx;
-  font-size: 28rpx;
-  color: #333333;
-  box-sizing: border-box;
-}
-
-.note-placeholder {
-  color: #bbbbbb;
-}
-
-.note-count {
-  font-size: 22rpx;
-  color: #cccccc;
-  text-align: right;
-  margin-top: 8rpx;
-}
-
-.submit-section {
-  padding: 24rpx 32rpx;
-}
-
-.submit-btn {
-  width: 100%;
-  height: 96rpx;
-  background-color: #2ecc71;
-  color: #ffffff;
-  font-size: 34rpx;
-  font-weight: bold;
-  border-radius: 48rpx;
-  box-shadow: 0 8rpx 24rpx rgba(46, 204, 113, 0.35);
-}
-
-.submit-btn.disabled {
-  background-color: #cccccc;
-  box-shadow: none;
-}
-
-.btn-hover {
-  opacity: 0.9;
-  transform: translateY(2rpx);
-}
+.gps-distance { font-size: 36rpx; font-weight: bold; color: #333333; }
+.gps-accuracy { font-size: 24rpx; color: #888888; }
+.photo-section { padding: 0 32rpx 24rpx; }
+.photo-preview { width: 200rpx; height: 200rpx; border-radius: 24rpx; overflow: hidden; background-color: #ffffff; border: 2rpx dashed #cccccc; display: flex; align-items: center; justify-content: center; }
+.photo-image { width: 100%; height: 100%; }
+.photo-placeholder { display: flex; flex-direction: column; align-items: center; }
+.photo-icon { font-size: 48rpx; }
+.photo-hint { font-size: 22rpx; color: #999999; }
+.note-section { padding: 0 32rpx 24rpx; }
+.note-label { font-size: 26rpx; color: #666666; margin-bottom: 12rpx; }
+.note-input { width: 100%; height: 160rpx; background-color: #ffffff; border-radius: 12rpx; padding: 20rpx; font-size: 28rpx; color: #333333; box-sizing: border-box; }
+.note-placeholder { color: #bbbbbb; }
+.submit-section { padding: 24rpx 32rpx; }
+.submit-btn { width: 100%; height: 96rpx; background-color: #2ecc71; color: #ffffff; font-size: 34rpx; font-weight: bold; border-radius: 48rpx; box-shadow: 0 8rpx 24rpx rgba(46, 204, 113, 0.35); }
+.submit-btn.disabled { background-color: #cccccc; box-shadow: none; }
+.btn-hover { opacity: 0.9; transform: translateY(2rpx); }
 </style>
