@@ -17,19 +17,15 @@
 <script setup lang="uts">
 import { ref, watchEffect } from 'vue'
 
-const props = withDefaults(defineProps<{
-  value: number,
-  color?: string,
-  height?: number,
-  showLabel?: boolean
-}>(), {
-  color: '#2ecc71',
-  height: 16,
-  showLabel: true
+const props = defineProps({
+  value: { type: Number, required: true },
+  color: { type: String, default: '#2ecc71' },
+  height: { type: Number, default: 16 },
+  showLabel: { type: Boolean, default: true }
 })
 
 const displayValue = ref<number>(0)
-const trackHeight = props.height ?? 16
+const trackHeight = props.height as number
 const barColor = props.color ?? '#2ecc71'
 
 watchEffect(() => {

@@ -1,7 +1,7 @@
 <template>
-  <view class="badge-card" :class="{ unlocked: achievement.unlocked, locked: !achievement.unlocked }">
+  <view class="badge-card" :class="cardClass">
     <view class="badge-icon">
-      <text class="icon-emoji">{{ achievement.unlocked ? achievement.icon : '🔒' }}</text>
+      <text class="icon-emoji">{{ achievement.unlocked ? achievement.icon : 'L' }}</text>
     </view>
     <text class="badge-name">{{ achievement.unlocked ? achievement.name : '???' }}</text>
     <text class="badge-desc">{{ achievement.unlocked ? achievement.desc : '尚未解锁' }}</text>
@@ -10,10 +10,19 @@
 
 <script setup lang="uts">
 import type { Achievement } from '@/types/achievement'
+import { computed } from 'vue'
 
-const props = defineProps<{
-  achievement: Achievement
-}>()
+const props = defineProps({
+  achievement: {
+    type: null as any,
+    required: true
+  }
+})
+
+const cardClass = computed((): string => {
+  const a = props.achievement as Achievement
+  return a.unlocked ? 'unlocked' : 'locked'
+})
 </script>
 
 <style>

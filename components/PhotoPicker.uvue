@@ -15,13 +15,11 @@
 <script setup lang="uts">
 import { ref } from 'vue'
 
-const props = defineProps<{
-  hint?: string
-}>()
+const props = defineProps({
+  hint: { type: String, default: '' }
+})
 
-const emit = defineEmits<{
-  (e: 'update', path: string, cloudURL: string | null): void
-}>()
+const emit = defineEmits(['update'])
 
 const photoPath = ref<string | null>(null)
 const isUploading = ref<boolean>(false)
