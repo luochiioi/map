@@ -80,14 +80,14 @@ function ensureMapCtx(): MapContext | null {
 type SdkMarker = uts.sdk.modules.DCloudUniMapTencent.Marker
 
 const displayMarkers = ref([
-  { id: 1, latitude: 39.9163, longitude: 116.3972, title: '北京故宫', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
-  { id: 2, latitude: 31.1465, longitude: 121.6593, title: '上海迪士尼', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
-  { id: 3, latitude: 28.1836, longitude: 112.9388, title: '长沙岳麓书院', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
-  { id: 4, latitude: 22.1979, longitude: 113.5413, title: '澳门大三巴', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
-  { id: 5, latitude: 28.1968, longitude: 112.9625, title: '长沙橘子洲', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
-  { id: 6, latitude: 23.1065, longitude: 113.3246, title: '广州塔', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
-  { id: 7, latitude: 23.0622, longitude: 113.3894, title: '中山大学东校区', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
-  { id: 8, latitude: 39.9505, longitude: 116.3474, title: '北京交通大学', iconPath: '/static/marker_default.png', width: 36, height: 36 } as SdkMarker,
+  { id: 1, latitude: 39.9163, longitude: 116.3972, title: '北京故宫', iconPath: '/static/location.png', width: 36, height: 36 } as SdkMarker,
+  { id: 2, latitude: 31.1465, longitude: 121.6593, title: '上海迪士尼', iconPath: '/static/location.png', width: 36, height: 36 } as SdkMarker,
+  { id: 3, latitude: 28.1836, longitude: 112.9388, title: '长沙岳麓书院', iconPath: '/static/location.png', width: 36, height: 36 } as SdkMarker,
+  { id: 4, latitude: 22.1979, longitude: 113.5413, title: '澳门大三巴', iconPath: '/static/location.png', width: 36, height: 36 } as SdkMarker,
+  { id: 5, latitude: 28.1968, longitude: 112.9625, title: '长沙橘子洲', iconPath: '/static/location.png', width: 36, height: 36 } as SdkMarker,
+  { id: 6, latitude: 23.1065, longitude: 113.3246, title: '广州塔', iconPath: '/static/location.png', width: 36, height: 36 } as SdkMarker,
+  { id: 7, latitude: 23.0622, longitude: 113.3894, title: '中山大学东校区', iconPath: '/static/location.png', width: 36, height: 36 } as SdkMarker,
+  { id: 8, latitude: 39.9505, longitude: 116.3474, title: '北京交通大学', iconPath: '/static/location.png', width: 36, height: 36 } as SdkMarker,
 ] as SdkMarker[])
 
 const dist = computed(() => {
