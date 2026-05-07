@@ -27,20 +27,25 @@
 | 1 | **禁止内联对象字面量类型** | 函数参数/返回值中 `{ key: Type }` 非法 | `Promise<{ size: number }>` | 定义 named type 或使用 `UTSJSONObject` |
 | 2 | **`\|\|`/`&&` 仅布尔操作数** | 不可用短路运算符取非布尔值 | `note \|\| null` | `note != '' ? note : null` |
 | 3 | **`!` 仅布尔操作数** | 不可对对象/数字/字符串取反 | `if (!marker)` | `if (marker == null)` |
-| 4 | **可空类型必须安全访问** | 可能为 null 的变量属性访问必须用 `?.` 或 `!!.` | `cloudMarker.id` | `cloudMarker?.id` 或 `cloudMarker!!.id` |
-| 5 | **`JSON.parse<T>()` 返回可空** | UTS 编译器认为 parse 返回 `T?`，需判空 | `JSON.parse<T>(s).prop` | `(JSON.parse(s) as T).prop` 且先判 null |
-| 6 | **禁止泛型 `defineProps<T>()`** | UTS 无法推断类型参数，编译失败 | `defineProps<{ a: Type }>()` | `defineProps({ a: { type: X, required: true } })` |
-| 7 | **禁止泛型 `defineEmits<T>()`** | 同上 | `defineEmits<(e,...)=>void>()` | `defineEmits(['eventName'])` |
-| 8 | **`withDefaults` 不兼容** | 泛型问题同上 | `withDefaults(defineProps<T>(), {})` | 直接在 `defineProps` 中写 `default:` |
-| 9 | **模板中 props 属性不解构** | option-style props 模板中不可直接 `.prop` | `{{ achievement.name }}` | 用 `computed` 暴露简单字符串/数字变量到模板 |
-| 10 | **模板中不可内联复杂对象字面量** | `:class="{ a: expr }"` 类型推断失败 | `:class="{ a: true, b: !expr }"` | 用 `computed` 计算为字符串 |
-| 11 | **`setTimeout` 在 Promise 中** | executor 须返回 void，setTimeout 返回 number | `new Promise(r => setTimeout(r,ms))` | `new Promise(r => { setTimeout(() => { r() }, ms) })` |
-| 12 | **Pinia 模块不可用** | uniapp x 不内置 npm pinia 包 | `import { defineStore } from 'pinia'` | 本地 shim: `from './pinia-shim'` |
-| 13 | **`as any` 完全不绕过属性检查** | `.prop` 和 `["prop"]` 均不可用于类型外属性 | `(x as any).unknown` | 无法访问类型定义之外的属性，删除该逻辑或扩展类型定义 |
-| 14 | **`Array.from()` 不可用** | UTS 不支持 `Array.from(iterable)` | `Array.from(map.values())` | 手动 `forEach` + `push` 构建数组 |
-| 15 | **内联对象字面量不匹配命名类型** | `func({ a: 1 })` 匿名类型 ≠ `T` 即使结构相同 | `setSafeArea({ top: 1 })` | 先声明 `const v: T = { ... }` 再传入 |
-| 16 | **`<script setup>` 函数不提升** | UTS 不 hoist 函数声明，定义必须在使用前 | 函数定义在 `onLaunch` 之后 | 函数定义移到 `onLaunch` 之前 |
-| 17 | **Promise 回调需显式类型** | `.then(cb)` 和 `.catch(cb)` 参数类型无法推断 | `.then(() => {})` | `.then((_: void): void => {})` |
+| 4 | **`if (nullable)` 不工作** | nullable 类型不可直接作为布尔条件 | `if (photoPath)` | `if (photoPath != null)` |
+| 5 | **可空类型必须安全访问** | 可能为 null 的变量属性访问必须用 `?.` 或 `!!.` | `cloudMarker.id` | `cloudMarker?.id` 或 `cloudMarker!!.id` |
+| 6 | **`JSON.parse<T>()` 返回可空** | UTS 编译器认为 parse 返回 `T?`，需判空 | `JSON.parse<T>(s).prop` | `(JSON.parse(s) as T).prop` 且先判 null |
+| 7 | **`String()` 不接受 number** | UTS String() 仅 CharArray/StringBuffer | `String(Date.now())` | `'' + Date.now()` |
+| 8 | **无 `undefined`** | Kotlin 不存在 undefined 关键字 | `let x: any = undefined` | 用 boolean flag: `let inited = false` |
+| 9 | **`null` 不可赋值给 `any`** | UTS 的 any 类型不接受 null | `let x: any = null` | 用 boolean flag 替代 |
+| 10 | **`Record<string, any>` = Map** | UTS 编译为 Kotlin `Map<String, Any>` | `const base: Record<string, any> = {...}` | 用 `UTSJSONObject` + `JSON.parse(JSON.stringify())` |
+| 11 | **禁止泛型 `defineProps<T>()`** | UTS 无法推断类型参数，编译失败 | `defineProps<{ a: Type }>()` | `defineProps({ a: { type: X, required: true } })` |
+| 12 | **禁止泛型 `defineEmits<T>()`** | 同上 | `defineEmits<(e,...)=>void>()` | `defineEmits(['eventName'])` |
+| 13 | **`withDefaults` 不兼容** | 泛型问题同上 | `withDefaults(defineProps<T>(), {})` | 直接在 `defineProps` 中写 `default:` |
+| 14 | **模板中 props 属性不解构** | option-style props 模板中不可直接 `.prop` | `{{ achievement.name }}` | 用 `computed` 暴露简单字符串/数字变量到模板 |
+| 15 | **模板中不可内联复杂对象字面量** | `:class="{ a: expr }"` 类型推断失败 | `:class="{ a: true, b: !expr }"` | 用 `computed` 计算为字符串 |
+| 16 | **`setTimeout` 在 Promise 中** | executor 须返回 void，setTimeout 返回 number | `new Promise(r => setTimeout(r,ms))` | `new Promise(r => { setTimeout(() => { r() }, ms) })` |
+| 17 | **Pinia 模块不可用** | uniapp x 不内置 npm pinia 包 | `import { defineStore } from 'pinia'` | 本地 shim: `from './pinia-shim'` |
+| 18 | **`as any` 完全不绕过属性检查** | `.prop` 和 `["prop"]` 均不可用于类型外属性 | `(x as any).unknown` | 无法访问类型定义之外的属性，删除该逻辑或扩展类型定义 |
+| 19 | **`Array.from()` 不可用** | UTS 不支持 `Array.from(iterable)` | `Array.from(map.values())` | 手动 `forEach` + `push` 构建数组 |
+| 20 | **内联对象字面量不匹配命名类型** | `func({ a: 1 })` 匿名类型 ≠ `T` 即使结构相同 | `setSafeArea({ top: 1 })` | 先声明 `const v: T = { ... }` 再传入 |
+| 21 | **`<script setup>` 函数不提升** | UTS 不 hoist 函数声明 | 函数定义在 `onLaunch` 之后 | 函数定义移到 `onLaunch` 之前 |
+| 22 | **Promise 链避免使用** | `.then(cb)`/`.catch(cb)` 类型推断经常失败 | `.then(() => {}).catch(() => {})` | 用 async/await 或 fire-and-forget |
 
 ---
 
@@ -52,8 +57,8 @@
 | 2 | **子组件用 option-style defineProps** | 所有 `defineProps` 和 `defineEmits` 使用 option 语法，禁止泛型语法 |
 | 3 | **Store 用本地 Pinia shim** | 项目中已创建 `stores/pinia-shim.uts`，所有 Store 从该文件导入 `defineStore` |
 | 4 | **文件编码** | 所有 `.uvue`/`.uts` 文件用 Write 工具写入（确保 UTF-8），避免 PowerShell `Set-Content` |
-| 5 | **`as any` 不能绕过属性名检查** | `(obj as any).unknownProp` 仍会报"找不到名称"，必须用 bracket 语法 `(obj as any)["unknownProp"]` — 注：bracket 同样可能失败，最安全是删除类型外属性访问 |
-| 6 | **`Array.from()` 不可用** | UTS 不支持 `Array.from(iterable)`，需手动 `forEach` + `push` 构建数组 |
+| 5 | **`Record<string, any>` 不可用作对象** | UTS 中编译为 `Map<String, Any>`，用 `UTSJSONObject` 替代 |
+| 6 | **`null` 不可赋值 `any`** | 用 boolean flag 或 `UTSJSONObject?` 处理可为空 |
 | 7 | **函数定义顺序** | `<script setup>` 中函数不提升，必须定义在调用之前 |
 
 ---
@@ -62,19 +67,25 @@
 
 | 错误码/关键词 | 含义 | 解决 |
 |-------------|------|------|
-| `UTS110111120` | 条件非布尔类型 | 检查 `if`/`&&`/`\|\|`/`!`，改用显式布尔比较 |
+| `UTS110111120` | 条件非布尔类型 | 检查 `if`/`&&`/`\|\|`/`!`，改用显式布尔比较或 `!= null` |
 | `UTS110111101` | 内联对象字面量类型 | 定义了 `{ key: Type }`，改为 named type 或 `UTSJSONObject` |
 | `找不到名称 "xxx"` (变量/模块) | import 缺失或拼写错误 | 检查 import 路径和导出名 |
 | `找不到名称 "xxx"` (函数) | 函数定义在调用之后 | UTS 不提升函数声明，移到调用之前 |
-| `找不到名称 "xxx"` (属性) | `as any` 不绕过属性名检查 | 无法访问类型外属性，删除逻辑或扩展类型 |
+| `找不到名称 "undefined"` | UTS 无 undefined | 用 boolean flag `let inited = false` |
 | `Cannot infer type` | 泛型类型推断失败 | 去掉泛型，使用显式类型标注 |
 | `Only safe (?.) or non-null (!!.)` | 可空变量非安全访问 | 加 `?.` 或 `!!.` |
 | `Return type mismatch` | 返回类型不匹配 | 检查 return 语句类型与函数签名一致 |
-| `Smart cast impossible` | 闭包内变量被修改，无法智能转换 | 避免在闭包外修改捕获的变量，改用简单的对象属性访问 |
+| `Smart cast impossible` | 闭包内变量被修改 | 避免在闭包外修改捕获的变量 |
+| `Initializer type mismatch` | `Record`/`Map`/`UTSJSONObject` 混淆 | 用 `JSON.parse(JSON.stringify())` 创建 UTSJSONObject |
+| `Condition type mismatch` | 非布尔条件 | 改用 `if (x != null)` |
+| `Null cannot be a value of non-null type` | null 赋值给 any | 用 boolean flag 替代 |
+| `None of the following candidates` | 函数调用参数类型不匹配 | 检查 `String()`/`Array.from()` 等是否在 UTS 中受支持 |
 | `property value not supported` | CSS 属性值不合法 | 参考第一章 CSS 规则 |
 | `Element is missing end tag` | 标签未闭合 | 检查 UTF-8 是否被截断，用 Write 重写文件 |
 | `Selector is not supported` | CSS 选择器不合法 | 改为纯 class 选择器 |
 | `cannot be invoked as a function` | 调用了 UTS 不支持的方法 | 检查 `Array.from`/迭代器等，改用手动循环 |
+| `Argument type mismatch` | 内联对象不匹配命名类型 | 先声明 `const v: T = {...}` 再传入 |
+| `Unresolved reference` (receiver) | `as any["prop"]` bracket 访问失败 | 删除类型外属性访问逻辑 |
 
 ---
 
