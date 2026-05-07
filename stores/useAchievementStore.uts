@@ -27,5 +27,8 @@ export const useAchievementStore = defineStore('achievements', () => {
   const achievements = computed(() => getAchievements())
   const unlockedCount = computed(() => achievements.value.filter(a => a.unlocked).length)
 
-  return { achievements: achievements, unlockedCount: unlockedCount } as any
+  return {
+    achievements: achievements,
+    unlockedCount: unlockedCount
+  } as any
 })

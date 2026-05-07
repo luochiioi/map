@@ -24,29 +24,6 @@ export const useLocationStore = defineStore('location', () => {
     return `${m}m 精度差`
   })
 
-  function startTracking(): void {
-    isTracking.value = true
-    uni.startLocationUpdate({
-      type: 'gcj02',
-      success: () => {},
-      fail: () => {
-        uni.getLocation({
-          type: 'gcj02',
-          isHighAccuracy: true,
-          highAccuracyExpireTime: 6000,
-          success: (res: any) => applyLocation(res)
-        })
-      }
-    })
-    uni.onLocationChange((res: any) => applyLocation(res))
-  }
-
-  function stopTracking(): void {
-    isTracking.value = false
-    uni.offLocationChange()
-    uni.stopLocationUpdate()
-  }
-
   function applyLocation(res: Record<string, any>): void {
     const acc: number = res.accuracy ?? 0
     accuracy.value = acc
@@ -58,13 +35,36 @@ export const useLocationStore = defineStore('location', () => {
     }
   }
 
+  function startTracking(): void {
+    isTracking.value = true
+    uni.startLocationUpdate({
+      type: 'gcj02',
+      success: (): void => {},
+      fail: (): void => {
+        uni.getLocation({
+          type: 'gcj02',
+          isHighAccuracy: true,
+          highAccuracyExpireTime: 6000,
+          success: (res: any): void => { applyLocation(res) }
+        })
+      }
+    })
+    uni.onLocationChange((res: any): void => { applyLocation(res) })
+  }
+
+  function stopTracking(): void {
+    isTracking.value = false
+    uni.offLocationChange()
+    uni.stopLocationUpdate()
+  }
+
   function pollLocationOnce(): Promise<LocationData> {
     return new Promise((resolve, reject) => {
       uni.getLocation({
         type: 'gcj02',
         isHighAccuracy: true,
         highAccuracyExpireTime: 6000,
-        success: (res: any) => {
+        success: (res: any): void => {
           const loc: LocationData = {
             latitude: res.latitude as number,
             longitude: res.longitude as number,
@@ -74,7 +74,7 @@ export const useLocationStore = defineStore('location', () => {
           currentLocation.value = loc
           resolve(loc)
         },
-        fail: (err: any) => reject(err)
+        fail: (err: any): void => { reject(err) }
       })
     })
   }
@@ -85,7 +85,7 @@ export const useLocationStore = defineStore('location', () => {
         type: 'gcj02',
         isHighAccuracy: true,
         highAccuracyExpireTime: 6000,
-        success: (res: any) => applyLocation(res)
+        success: (res: any): void => { applyLocation(res) }
       })
     }
     poll()
@@ -93,14 +93,14 @@ export const useLocationStore = defineStore('location', () => {
   }
 
   function stopPolling(): void {
-    if (pollTimerId) {
+    if (pollTimerId != 0) {
       clearInterval(pollTimerId)
       pollTimerId = 0
     }
   }
 
   function distanceTo(lat: number, lng: number): number | null {
-    if (!currentLocation.value) return null
+    if (currentLocation.value == null) return null
     return haversine(
       currentLocation.value.latitude,
       currentLocation.value.longitude,
@@ -111,8 +111,12 @@ export const useLocationStore = defineStore('location', () => {
   return {
     currentLocation: currentLocation, accuracy: accuracy, isTracking: isTracking,
     accuracyLevel: accuracyLevel, accuracyText: accuracyText,
-    startTracking: startTracking, stopTracking: stopTracking, applyLocation: applyLocation,
-    pollLocationOnce: pollLocationOnce, startPolling: startPolling, stopPolling: stopPolling,
-    distanceTo: distanceTo
+    startTracking: (): void => { startTracking() },
+    stopTracking: (): void => { stopTracking() },
+    applyLocation: (res: Record<string, any>): void => { applyLocation(res) },
+    pollLocationOnce: (): Promise<LocationData> => { return pollLocationOnce() },
+    startPolling: (intervalMs: number): void => { startPolling(intervalMs) },
+    stopPolling: (): void => { stopPolling() },
+    distanceTo: (lat: number, lng: number): number | null => { return distanceTo(lat, lng) }
   } as any
 })

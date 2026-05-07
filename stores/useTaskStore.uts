@@ -72,9 +72,9 @@ export const useTaskStore = defineStore('tasks', () => {
     rewards: rewards,
     completedTaskCount: completedTaskCount,
     totalTaskCount: totalTaskCount,
-    loadFromStorage: loadFromStorage,
-    persist: persist,
-    checkTaskCompletion: checkTaskCompletion,
-    findTaskById: findTaskById
+    loadFromStorage: (): void => { loadFromStorage() },
+    persist: (): void => { persist() },
+    checkTaskCompletion: (marker: Marker): Task[] => { return checkTaskCompletion(marker) },
+    findTaskById: (id: string): Task | null => { return findTaskById(id) }
   } as any
 })

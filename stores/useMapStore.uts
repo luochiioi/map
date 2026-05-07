@@ -52,7 +52,12 @@ export const useMapStore = defineStore('map', () => {
   return {
     latitude: latitude, longitude: longitude, scale: scale, activeMarker: activeMarker,
     mapCenterLat: mapCenterLat, mapCenterLng: mapCenterLng, mapContext: mapContext, focusTarget: focusTarget,
-    setActiveMarker: setActiveMarker, zoomIn: zoomIn, zoomOut: zoomOut, moveToLocation: moveToLocation,
-    onRegionChangeEnd: onRegionChangeEnd, requestFocus: requestFocus, consumeFocus: consumeFocus
+    setActiveMarker: (m: Marker | null): void => { setActiveMarker(m) },
+    zoomIn: (): void => { zoomIn() },
+    zoomOut: (): void => { zoomOut() },
+    moveToLocation: (lat: number, lng: number, s: number): void => { moveToLocation(lat, lng, s) },
+    onRegionChangeEnd: (lat: number, lng: number): void => { onRegionChangeEnd(lat, lng) },
+    requestFocus: (m: Marker): void => { requestFocus(m) },
+    consumeFocus: (): Marker | null => { return consumeFocus() }
   } as any
 })
