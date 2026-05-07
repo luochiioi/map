@@ -15,35 +15,14 @@ export const completionRate = computed(() =>
   totalCount.value === 0 ? 0 : Math.round((doneCount.value / totalCount.value) * 100)
 )
 
-// displayMarkers — 把 app 的 typed CheckinMarker[] 构造成腾讯地图插件期待的 Marker[]。
+// 注：原本这里有 displayMarkers / miniMapMarkers 导出，把 CheckinMarker 转成
+// SDK 原生 Marker[]。但 .uts 文件里 `Marker` 这个名字会被 UTS 编译器在
+// 类型注解 / as 转换两处解析到不同 namespace（error17）。
+// 解决办法：把这两个 computed 直接写到对应的 .uvue 文件里
+// （pages/index/index.uvue 的 displayMarkers，pages/tasks/tasks.uvue 的 miniMapMarkers），
+// .uvue 上下文里 Marker 名字解析一致。详见 UTS_COMPILE_PITFALLS §F。
 //
-// 演进史（2026-05-07）：
-//   1) 一开始 app 自己的类型也叫 Marker → 与 SDK 同名冲突 → ClassCastException
-//   2) 重命名为 CheckinMarker 后，边界改 UTSJSONObject[] 兜底 → 仍然 ClassCastException
-//      （插件 setMarkers 即使收到 UTSJSONObject 也强行 `as Marker` 拒掉）
-//   3) 最终方案：直接构造 SDK 自己的 Marker[]。重命名让 `Marker` 这个名字在本文件内
-//      唯一指向 uts.sdk.modules.DCloudUniMapTencent.Marker（uniapp x 自动注入），
-//      用 `{ ... } as Marker` 字面量构造即可，参考 uni_modules/uni-openLocation
-//      的 openLocation.uvue 同款写法。
-export const displayMarkers = computed<Marker[]>(() => {
-  const result: Marker[] = []
-  markers.value.forEach(m => {
-    result.push({
-      id: m.id,
-      latitude: m.latitude,
-      longitude: m.longitude,
-      title: m.title,
-      iconPath: m.iconPath,
-      width: m.width,
-      height: m.height
-    } as Marker)
-  })
-  return result
-})
-
-// miniMapMarkers — tasks.uvue 顶部缩略地图用，限制 20 个，节省渲染开销。
-// 同样是 SDK 原生 Marker[]，避免 CheckinMarkerReactiveObject 被插件拒。
-export const miniMapMarkers = computed<Marker[]>(() => displayMarkers.value.slice(0, 20))
+// 这个 store 只暴露业务态 markers: CheckinMarker[]，SDK 边界由各页面自己构造。
 
 export async function loadFromStorage(): Promise<void> {
   isLoading.value = true

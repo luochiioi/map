@@ -38,7 +38,7 @@
 
 <script setup lang="uts">
 import { ref, computed, onShow } from 'vue'
-import { markers, checkedMarkers, totalCount, doneCount, loadFromStorage as loadMarkers, deleteMarker, findById, miniMapMarkers } from '@/stores/useMarkerStore'
+import { markers, checkedMarkers, totalCount, doneCount, loadFromStorage as loadMarkers, deleteMarker, findById } from '@/stores/useMarkerStore'
 import { completedTaskCount, totalTaskCount, loadFromStorage as loadTasks } from '@/stores/useTaskStore'
 import { achievements, unlockedCount } from '@/stores/useAchievementStore'
 import { requestFocus } from '@/stores/useMapStore'
@@ -57,6 +57,26 @@ const filteredMarkers = computed(() => {
   if (activeFilter.value === 'pending') return checkedMarkers.value
   if (activeFilter.value === 'done') return checkedMarkers.value
   return markers.value
+})
+
+// miniMapMarkers — 缩略地图绑定，构造 SDK 原生 Marker[]，限制 20 个。
+// 同 pages/index/index.uvue：只能放 .uvue 文件里，避免 UTS .uts 文件中 Marker
+// 名字解析歧义（error17）。详见 UTS_COMPILE_PITFALLS §F。
+const miniMapMarkers = computed<Marker[]>((): Marker[] => {
+  const result: Marker[] = []
+  const slice = markers.value.slice(0, 20)
+  slice.forEach((m: CheckinMarker) => {
+    result.push({
+      id: m.id,
+      latitude: m.latitude,
+      longitude: m.longitude,
+      title: m.title,
+      iconPath: m.iconPath,
+      width: m.width,
+      height: m.height
+    } as Marker)
+  })
+  return result
 })
 
 const miniLat = computed(() => { if (markers.value.length > 0) return markers.value[0].latitude; return 39.9163 })

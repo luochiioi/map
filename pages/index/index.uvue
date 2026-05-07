@@ -58,7 +58,7 @@
 
 <script setup lang="uts">
 import { ref, computed, onShow, onHide } from 'vue'
-import { loadFromStorage as loadMarkers, deleteMarker, findById, markers, displayMarkers, doneCount, totalCount } from '@/stores/useMarkerStore'
+import { loadFromStorage as loadMarkers, deleteMarker, findById, markers, doneCount, totalCount } from '@/stores/useMarkerStore'
 import { currentLocation, accuracyLevel, accuracyText, startTracking, stopTracking, distanceTo } from '@/stores/useLocationStore'
 import { latitude, longitude, scale, activeMarker, setActiveMarker, zoomIn, zoomOut, moveToLocation, onRegionChangeEnd, mapCenterLat, mapCenterLng, requestFocus, consumeFocus } from '@/stores/useMapStore'
 import { loadFromStorage as loadTasks } from '@/stores/useTaskStore'
@@ -71,6 +71,26 @@ import { formatDateTime, formatDistance } from '@/utils/format'
 function ensureMapCtx(): MapContext | null {
   return uni.createMapContext('mainMap')
 }
+
+// displayMarkers — 把 app 的 typed CheckinMarker[] 构造为 SDK 原生 Marker[]。
+// 必须放在 .uvue 文件里（不能放 .uts 里），原因见 UTS_COMPILE_PITFALLS §F：
+// .uts 文件中 `Marker` 名字在类型注解 / as 转换两处会被解析到不同 namespace，
+// 触发 error17 编译错误。.uvue 上下文里 Marker 解析始终一致到 SDK Marker。
+const displayMarkers = computed<Marker[]>((): Marker[] => {
+  const result: Marker[] = []
+  markers.value.forEach((m: CheckinMarker) => {
+    result.push({
+      id: m.id,
+      latitude: m.latitude,
+      longitude: m.longitude,
+      title: m.title,
+      iconPath: m.iconPath,
+      width: m.width,
+      height: m.height
+    } as Marker)
+  })
+  return result
+})
 
 const dist = computed(() => {
   const m = activeMarker.value

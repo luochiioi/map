@@ -185,6 +185,37 @@ Vue 包装一层后类名变成 `CheckinMarkerReactiveObject`,仍被插件 cast 
 - **教训**:UTSJSONObject 不是万能兜底。某些 SDK(腾讯地图)对 prop 做强类型断言,
   只能给它正主。重命名让出名字 → 用名字构造 → 才闭环。
 
+**修复执行记录(2026-05-07,补丁 #3 — 必须放 `.uvue`)**: 补丁 #2 把 `displayMarkers`
+的构造写在 `stores/useMarkerStore.uts` 里,触发 UTS 编译器 error17:
+
+```
+参数类型不匹配：实际类型为 'uts.sdk.modules.DCloudUniMapTencent.Marker'，
+预期类型为 'uni.UNIC0495C1.Marker'。
+at stores/useMarkerStore.uts:39:9   } as Marker)
+```
+
+**根因**: `.uts` 文件里 `Marker` 这个名字会被 UTS 编译器在两个位置解析到**不同**的
+namespace —— `result: Marker[]` 解析到 `uni.UNIC0495C1.Marker`(app 命名空间下的
+某个自动合成 alias),而 `} as Marker` 解析到 `uts.sdk.modules.DCloudUniMapTencent.Marker`
+(SDK 真身)。两种 Marker 在 Kotlin 名义类型下是不同的类,`result.push(... as Marker)`
+触发参数类型不匹配。
+
+`.uvue` 文件不会有这个问题——上下文里 `Marker` 名字解析一致,始终是 SDK Marker。
+原因可能是 .uvue 模板里 `<map :markers>` 强制给 `Marker` 唯一绑定,而 .uts 文件
+没有这个锚点,SDK 自动注入和 app 命名空间合成 alias 都可见。
+
+**最终落点**:
+- `stores/useMarkerStore.uts` **不导出** `displayMarkers` / `miniMapMarkers`,
+  只暴露业务态 `markers: CheckinMarker[]`
+- `pages/index/index.uvue` 内部声明 `const displayMarkers = computed<Marker[]>(...)`
+- `pages/tasks/tasks.uvue` 内部声明 `const miniMapMarkers = computed<Marker[]>(...)`
+- 模板侧绑定不变:`<map :markers="displayMarkers">` 和 `<map :markers="miniMapMarkers">`
+
+**通用规则补充**:
+> SDK boundary computed 必须写在 `.uvue` 里,不能写在 `.uts` store 里。
+> store 只暴露业务态(typed CheckinMarker[]),SDK shape 转换在页面边界完成。
+> 这等同于"DTO at the boundary"模式 —— 业务态和外部接口态在不同文件分层。
+
 ---
 
 ### G. fail 回调可以保留 `any`(唯一安全场景)
