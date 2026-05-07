@@ -36,8 +36,9 @@
 | 10 | **模板中不可内联复杂对象字面量** | `:class="{ a: expr }"` 类型推断失败 | `:class="{ a: true, b: !expr }"` | 用 `computed` 计算为字符串 |
 | 11 | **`setTimeout` 在 Promise 中** | executor 须返回 void，setTimeout 返回 number | `new Promise(r => setTimeout(r,ms))` | `new Promise(r => { setTimeout(() => { r() }, ms) })` |
 | 12 | **Pinia 模块不可用** | uniapp x 不内置 npm pinia 包 | `import { defineStore } from 'pinia'` | 本地 shim: `from './pinia-shim'` |
-| 13 | **`as any` 不绕过属性名检查** | `(obj as any).dynamicProp` 仍报"找不到名称" | `(x as any).unknownProp` | bracket 语法：`(x as any)["unknownProp"]` |
+| 13 | **`as any` 完全不绕过属性检查** | `.prop` 和 `["prop"]` 均不可用于类型外属性 | `(x as any).unknownProp` | 无法访问类型定义之外的属性，删除该逻辑或扩展类型定义 |
 | 14 | **`Array.from()` 不可用** | UTS 不支持 `Array.from(iterable)` | `Array.from(map.values())` | 手动 `forEach` + `push` 构建数组 |
+| 15 | **内联对象字面量不匹配命名类型** | `func({ a: 1 })` 匿名类型 ≠ `T` 即使结构相同 | `setSafeArea({ top: 1 })` | 先声明 `const v: T = { ... }` 再传入 |
 
 ---
 
