@@ -1,10 +1,10 @@
 <template>
   <view class="badge-card" :class="cardClass">
     <view class="badge-icon">
-      <text class="icon-emoji">{{ achievement.unlocked ? achievement.icon : 'L' }}</text>
+      <text class="icon-emoji">{{ displayIcon }}</text>
     </view>
-    <text class="badge-name">{{ achievement.unlocked ? achievement.name : '???' }}</text>
-    <text class="badge-desc">{{ achievement.unlocked ? achievement.desc : '尚未解锁' }}</text>
+    <text class="badge-name">{{ displayName }}</text>
+    <text class="badge-desc">{{ displayDesc }}</text>
   </view>
 </template>
 
@@ -19,9 +19,24 @@ const props = defineProps({
   }
 })
 
+const a = computed((): Achievement => {
+  return props.achievement as Achievement
+})
+
 const cardClass = computed((): string => {
-  const a = props.achievement as Achievement
-  return a.unlocked ? 'unlocked' : 'locked'
+  return a.value.unlocked ? 'unlocked' : 'locked'
+})
+
+const displayIcon = computed((): string => {
+  return a.value.unlocked ? a.value.icon : 'L'
+})
+
+const displayName = computed((): string => {
+  return a.value.unlocked ? a.value.name : '???'
+})
+
+const displayDesc = computed((): string => {
+  return a.value.unlocked ? a.value.desc : '尚未解锁'
 })
 </script>
 
