@@ -2,7 +2,7 @@ import { ref, computed } from 'vue'
 import type { LocationData, AccuracyLevel } from '@/types/location'
 import { calculateDistance as haversine } from '@/utils/coordinate'
 
-let instance: any = null
+let instance: UTSJSONObject | null = null
 
 export function useLocationStore(): any {
   if (instance != null) return instance

@@ -5,7 +5,7 @@ import { getDefaultTasks } from '@/utils/defaults'
 import { loadTasks, saveTasks, loadUserTasks, saveUserTasks, loadRewards, saveRewards } from '@/utils/storage'
 import type { UserTaskProgress } from '@/utils/storage'
 
-let instance: any = null
+let instance: UTSJSONObject | null = null
 
 export function useTaskStore(): any {
   if (instance != null) return instance

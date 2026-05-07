@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import type { Marker } from '@/types/marker'
 
-let instance: any = null
+let instance: UTSJSONObject | null = null
 
 export function useMapStore(): any {
   if (instance != null) return instance

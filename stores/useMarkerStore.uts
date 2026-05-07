@@ -4,7 +4,7 @@ import { loadMarkers, saveMarkers } from '@/utils/storage'
 import { getDefaultMarkers } from '@/utils/defaults'
 import { syncMarkers } from '@/utils/cloudSync'
 
-let instance: any = null
+let instance: UTSJSONObject | null = null
 
 export function useMarkerStore(): any {
   if (instance != null) return instance
@@ -111,14 +111,14 @@ export function useMarkerStore(): any {
     doneCount: doneCount,
     completionRate: completionRate,
     displayMarkers: displayMarkers,
-    loadFromStorage: loadFromStorage,
-    persist: persist,
-    addMarker: addMarker,
-    doCheckIn: doCheckIn,
-    deleteMarker: deleteMarker,
-    findById: findById,
-    findByTitle: findByTitle,
-    syncFromCloud: syncFromCloud
-  }
+    loadFromStorage: (): void => { loadFromStorage() },
+    persist: (): void => { persist() },
+    addMarker: (input: NewMarkerInput): void => { addMarker(input) },
+    doCheckIn: (markerId: number, photoPath: string | null, note: string | null): void => { doCheckIn(markerId, photoPath, note) },
+    deleteMarker: (markerId: number): void => { deleteMarker(markerId) },
+    findById: (id: number): Marker | null => { return findById(id) },
+    findByTitle: (title: string): Marker | null => { return findByTitle(title) },
+    syncFromCloud: (): void => { syncFromCloud() }
+  } as any
   return instance
 }

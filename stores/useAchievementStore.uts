@@ -4,7 +4,7 @@ import type { Marker } from '@/types/marker'
 import { useMarkerStore } from './useMarkerStore'
 import { useTaskStore } from './useTaskStore'
 
-let instance: any = null
+let instance: UTSJSONObject | null = null
 
 export function useAchievementStore(): any {
   if (instance != null) return instance
