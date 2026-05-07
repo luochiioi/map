@@ -15,19 +15,10 @@ export const completionRate = computed(() =>
   totalCount.value === 0 ? 0 : Math.round((doneCount.value / totalCount.value) * 100)
 )
 
-export const displayMarkers = computed(() =>
-  markers.value.map(m => {
-    const jsonStr = JSON.stringify(m)
-    const base = JSON.parse(jsonStr) as UTSJSONObject
-    if (m.checked) {
-      const labelStr = '{"content":"✓","color":"#34c759","fontSize":13,"borderRadius":10,"bgColor":"#e6f9ed","padding":4}'
-      const labelObj = JSON.parse(labelStr) as UTSJSONObject
-      base["label"] = labelObj
-      base["iconPath"] = '/static/marker_checked.png'
-    }
-    return base
-  })
-)
+// displayMarkers 已移除（死代码 + JSON.parse as UTSJSONObject 假转换）。
+// checked 状态下的不同图标已通过 doCheckIn 中直接 mutate iconPath 实现（见下方 line ~60）。
+// 后续若需更复杂的 marker 视觉差异（label/zIndex 等），应扩展 Marker 类型本身，
+// 而不是用 JSON.stringify→parse 反序列化技巧。
 
 export async function loadFromStorage(): Promise<void> {
   isLoading.value = true

@@ -1790,9 +1790,36 @@ page {
 
 ### 11.5 UTS 编译 + 运行时避坑指南（必读）
 
-> **配套文件**：`UTS_COMPILE_PITFALLS.md`（完整版，30+ 条规则，含运行时层）
+> **配套文件**：`UTS_COMPILE_PITFALLS.md`（完整版，30+ 条规则 + Phase 1.5 章节）
 >
-> **黄金法则（5 条）**：
+> **🔥 Phase 1.5 教训（2026-05-07，5 个真机崩溃后总结）：**
+>
+> Kotlin 是**名义类型系统**，不是 TypeScript 的结构类型。三个错误码同根：
+> - `error18` 找不到名称 → `(x: any).field` 不允许（any 编译为 Kotlin Any，无成员）
+> - `UTS110111101` Object Literal Type 不支持 → 函数签名禁止匿名 `{ a: number }` 类型
+> - `error17` Function1<X> ≠ Function1<Y> → 即使字段相同，自定义类型不能替换 SDK 类型
+>
+> **铁律**：**SDK 要求什么类型，就只能用什么类型**（`LocationObject` / `UniMapMarkerTapEvent` / `GetLocationSuccess` 等）。自己定义的"等价"别名永远过不了 Kotlin 的名义检查。
+>
+> **Storage / JSON 反序列化必须用泛型**：
+> ```ts
+> // 错（运行期 ClassCastException）：
+> JSON.parse(raw) as Marker[]
+> // 对（真正构造 typed 实例）：
+> JSON.parse<Marker[]>(raw) ?? []
+> ```
+>
+> **map 组件事件类型对照表**（来源：`@dcloudio/uni-app-x/types/uni/uni-map-tencent-map.d.ts`）：
+> - `@markertap` → `UniMapMarkerTapEvent`，`detail.markerId: number | null`
+> - `@regionchange` → `UniMapRegionChangeEvent`，detail 只有 `skew/rotate`，**无 centerLocation**！需用 `MapContext.getCenterLocation` 异步取
+> - `@longpress` → 通用组件 longpress，**无 detail**！长按取坐标只能用 MapContext
+> - `@tap` → `UniMapTapEvent`，`detail.{latitude, longitude}`
+>
+> **模板字符串禁止 union 类型**：`url: \`?lat=${num ?? ''}\`` 会误报 "uni.navigateTo 拼写错误"，真因是 `${number | string}` 违法。预先 `.toString()`。
+>
+> ---
+>
+> **黄金法则（仍有效，5 条）**：
 > 1. `UTSJSONObject["prop"]` 用于 JSON 数据；**原生 SDK 回调用 `.prop`**（cast 到 UTSJSONObject → 运行时 `ClassCastException`）
 > 2. 直接 `export const/function`（不用 Pinia/defineStore）
 > 3. 内联对象 → `const v: T = {...}` 先声明再传入
@@ -1801,7 +1828,7 @@ page {
 >
 > **何时 `.prop` vs `["prop"]`？** 见 `UTS_COMPILE_PITFALLS.md` 第四章对照表。
 >
-> **后续所有 .uvue/.uts 文件编写前必须查阅该文档。**
+> **后续所有 .uvue/.uts 文件编写前必须查阅该文档**，先读 `UTS_COMPILE_PITFALLS.md` §Phase 1.5。
 
 ---
 

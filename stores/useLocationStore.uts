@@ -21,14 +21,15 @@ export const accuracyText = computed<string>(() => {
   return `${m}m 精度差`
 })
 
-// Native API callbacks pass typed objects — use .prop access, not UTSJSONObject
-export function applyLocation(res: any): void {
-  const acc: number = (res.accuracy as number) ?? 0
+// uni-app x: native callbacks must use the official typed signature.
+// `any` cannot do member access in UTS (compiles to Kotlin `Any`) — see error18.
+export function applyLocation(res: GetLocationSuccess): void {
+  const acc: number = res.accuracy
   accuracy.value = acc
   if (acc > 150) return
   currentLocation.value = {
-    latitude: res.latitude as number,
-    longitude: res.longitude as number,
+    latitude: res.latitude,
+    longitude: res.longitude,
     accuracy: acc
   }
 }
@@ -40,11 +41,11 @@ export function startTracking(): void {
     fail: (): void => {
       uni.getLocation({
         type: 'gcj02', isHighAccuracy: true, highAccuracyExpireTime: 6000,
-        success: (res: any): void => { applyLocation(res) }
+        success: (res: GetLocationSuccess): void => { applyLocation(res) }
       })
     }
   })
-  uni.onLocationChange((res: any): void => { applyLocation(res) })
+  uni.onLocationChange((res: GetLocationSuccess): void => { applyLocation(res) })
 }
 
 export function stopTracking(): void { isTracking.value = false; uni.offLocationChange(); uni.stopLocationUpdate({}) }
@@ -53,11 +54,11 @@ export function pollLocationOnce(): Promise<LocationData> {
   return new Promise((resolve, reject) => {
     uni.getLocation({
       type: 'gcj02', isHighAccuracy: true, highAccuracyExpireTime: 6000,
-      success: (res: any): void => {
+      success: (res: GetLocationSuccess): void => {
         const loc: LocationData = {
-          latitude: res.latitude as number,
-          longitude: res.longitude as number,
-          accuracy: (res.accuracy as number) ?? 0
+          latitude: res.latitude,
+          longitude: res.longitude,
+          accuracy: res.accuracy
         }
         accuracy.value = loc.accuracy; currentLocation.value = loc; resolve(loc)
       },
@@ -70,7 +71,7 @@ export function startPolling(intervalMs: number): void {
   const poll = (): void => {
     uni.getLocation({
       type: 'gcj02', isHighAccuracy: true, highAccuracyExpireTime: 6000,
-      success: (res: any): void => { applyLocation(res) }
+      success: (res: GetLocationSuccess): void => { applyLocation(res) }
     })
   }
   pollTimerId = setInterval(poll, intervalMs) as any as number

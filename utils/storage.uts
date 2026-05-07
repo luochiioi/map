@@ -1,6 +1,7 @@
 // 本地存储封装（Android SharedPreferences）
-// UTS 中显式 JSON 序列化更稳定，避免 setStorageSync 的隐式类型推断
-// 每个资源一组 load/save，比泛型 getJSON<T> 在 UTS→Kotlin 编译期更可靠
+// UTS 反序列化必须用 JSON.parse<T>() 泛型形式才会真正构造 typed 实例。
+// 直接 JSON.parse(raw) as T[] 是 Kotlin 假 cast，运行期 ClassCastException。
+// 详见 UTS_COMPILE_PITFALLS.md §Phase 1.5/D。
 import type { Marker } from '@/types/marker'
 import type { Task, Reward } from '@/types/task'
 import type { User } from '@/types/user'
@@ -33,7 +34,8 @@ export function loadMarkers(): Marker[] {
   const raw = readString(KEY_MARKERS)
   if (raw == null) return [] as Marker[]
   try {
-    return JSON.parse(raw) as Marker[]
+    const parsed = JSON.parse<Marker[]>(raw)
+    return parsed ?? ([] as Marker[])
   } catch (e) {
     console.error('loadMarkers parse fail', e)
     return [] as Marker[]
@@ -53,7 +55,8 @@ export function loadTasks(): Task[] {
   const raw = readString(KEY_TASKS)
   if (raw == null) return [] as Task[]
   try {
-    return JSON.parse(raw) as Task[]
+    const parsed = JSON.parse<Task[]>(raw)
+    return parsed ?? ([] as Task[])
   } catch (e) {
     console.error('loadTasks parse fail', e)
     return [] as Task[]
@@ -69,20 +72,24 @@ export type UserTaskProgress = {
   completedAt: number    // 0 = 未完成
 }
 
+// TODO(Phase 1.5): UserTask 进度跨会话恢复。
+// UTSJSONObject → Map<K,V> 的迭代 API（toMap/forEach/Object.keys）在 UTS 上行为
+// 未充分验证；当前先返回空 Map 让 P0 跑通，不阻塞首屏。saveUserTasks 仍正常写盘，
+// 数据未丢，只是重启后任务完成态需依赖 useTaskStore.loadFromStorage 中的 task.status
+// 字段（已通过 loadTasks 正确恢复）。
+// 后续修复：用 array-of-pairs 的中间格式 (Array<[string, UserTaskProgress]>)，
+// 这种结构 JSON.parse<Array<...>>() 在 UTS 上是稳定的。
 export function loadUserTasks(): Map<string, UserTaskProgress> {
-  const raw = readString(KEY_USER_TASKS)
-  const m = new Map<string, UserTaskProgress>()
-  if (raw == null) return m
-  try {
-    return JSON.parse(raw) as Map<string, UserTaskProgress>
-  } catch (e) {
-    console.error('loadUserTasks parse fail', e)
-    return m
-  }
+  return new Map<string, UserTaskProgress>()
 }
 
 export function saveUserTasks(ut: Map<string, UserTaskProgress>): void {
-  writeString(KEY_USER_TASKS, JSON.stringify(ut))
+  // Map → plain JSON 对象再序列化（UTSJSONObject 作中转最稳）。
+  const plain = {} as UTSJSONObject
+  ut.forEach((v: UserTaskProgress, k: string) => {
+    plain[k] = v
+  })
+  writeString(KEY_USER_TASKS, JSON.stringify(plain))
 }
 
 // ===== Rewards =====
@@ -93,7 +100,8 @@ export function loadRewards(): Reward[] {
   const raw = readString(KEY_REWARDS)
   if (raw == null) return [] as Reward[]
   try {
-    return JSON.parse(raw) as Reward[]
+    const parsed = JSON.parse<Reward[]>(raw)
+    return parsed ?? ([] as Reward[])
   } catch (e) {
     console.error('loadRewards parse fail', e)
     return [] as Reward[]
@@ -112,7 +120,7 @@ export function loadAuthUser(): User | null {
   const raw = readString(KEY_AUTH_USER)
   if (raw == null) return null
   try {
-    return JSON.parse(raw) as User
+    return JSON.parse<User>(raw)
   } catch (e) {
     return null
   }

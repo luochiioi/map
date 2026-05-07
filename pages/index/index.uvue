@@ -94,22 +94,48 @@ onShow((): void => {
 })
 onHide((): void => { stopTracking() })
 
-function onMarkerTap(e: any): void {
-  const detail = e.detail as any
-  const m = findById(detail.markerId as number)
+function onMarkerTap(e: UniMapMarkerTapEvent): void {
+  const detail = e.detail
+  if (detail == null) return
+  const markerId = detail.markerId
+  if (markerId == null) return
+  const m = findById(markerId)
   if (m != null) setActiveMarker(m)
 }
-function onMapLongPress(e: any): void {
-  const detail = e.detail as any
-  uni.navigateTo({ url: `/pages/add-marker/add-marker?centerLat=${detail.latitude as number}&centerLng=${detail.longitude as number}&currentLat=${currentLocation.value?.latitude ?? ''}&currentLng=${currentLocation.value?.longitude ?? ''}` })
+
+// uni-app x: universal @longpress carries no coordinates, and @regionchange detail
+// only exposes skew/rotate. Query MapContext.getCenterLocation() to get the actual
+// visible map center, then drive the UX from there.
+function navigateToAddMarkerAt(centerLat: number, centerLng: number): void {
+  const cur = currentLocation.value
+  const curLat = cur != null ? cur.latitude.toString() : ''
+  const curLng = cur != null ? cur.longitude.toString() : ''
+  uni.navigateTo({ url: `/pages/add-marker/add-marker?centerLat=${centerLat}&centerLng=${centerLng}&currentLat=${curLat}&currentLng=${curLng}` })
 }
-function onRegionChange(e: any): void {
-  if (e.type === 'end' && e.detail != null && e.detail.centerLocation != null) {
-    onRegionChangeEnd(e.detail.centerLocation.latitude as number, e.detail.centerLocation.longitude as number)
-  }
+
+function onMapLongPress(): void {
+  const ctx = uni.createMapContext('mainMap')
+  if (ctx == null) return
+  ctx.getCenterLocation({
+    success: (res: LocationObject): void => {
+      navigateToAddMarkerAt(res.latitude, res.longitude)
+    }
+  })
 }
+
+function onRegionChange(e: UniMapRegionChangeEvent): void {
+  if (e.type !== 'end') return
+  const ctx = uni.createMapContext('mainMap')
+  if (ctx == null) return
+  ctx.getCenterLocation({
+    success: (res: LocationObject): void => {
+      onRegionChangeEnd(res.latitude, res.longitude)
+    }
+  })
+}
+
 function goAddMarker(): void {
-  uni.navigateTo({ url: `/pages/add-marker/add-marker?centerLat=${mapCenterLat.value}&centerLng=${mapCenterLng.value}&currentLat=${currentLocation.value?.latitude ?? ''}&currentLng=${currentLocation.value?.longitude ?? ''}` })
+  navigateToAddMarkerAt(mapCenterLat.value, mapCenterLng.value)
 }
 function doCheckin(): void {
   const m = activeMarker.value; if (m == null) return

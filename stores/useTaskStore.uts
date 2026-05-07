@@ -15,16 +15,19 @@ export function loadFromStorage(): void {
   let stored = loadTasks()
   if (stored.length === 0) { stored = getDefaultTasks(); saveTasks(stored) }
   const ut = loadUserTasks()
-  tasks.value = stored.map(t => {
+  // After fixed loadTasks() (JSON.parse<Task[]>), `t` is a real Task instance.
+  // Mutate fields directly instead of JSON.stringify→parse round-trip (which yielded
+  // UTSJSONObject and crashed when callers accessed Kotlin properties).
+  stored.forEach(t => {
     const progress = ut.get(t.id)
     if (progress != null && progress.status === 'completed') {
-      const jsonStr = JSON.stringify(t); const updated = JSON.parse(jsonStr) as UTSJSONObject
-      updated["status"] = 'completed'; updated["completedAt"] = progress.completedAt
-      return updated as any as Task
+      t.status = 'completed'
+      t.completedAt = progress.completedAt
     }
-    return t
   })
-  userTasks.value = ut; rewards.value = loadRewards()
+  tasks.value = stored
+  userTasks.value = ut
+  rewards.value = loadRewards()
 }
 export function persist(): void { saveTasks(tasks.value); saveUserTasks(userTasks.value); saveRewards(rewards.value) }
 
@@ -33,9 +36,25 @@ export function checkTaskCompletion(marker: Marker): Task[] {
   tasks.value.forEach(task => {
     if (task.status === 'completed') return
     if (!(task.targetMarkerId === marker.id || task.targetTitle === marker.title)) return
-    task.status = 'completed'; task.completedAt = Date.now()
-    userTasks.value.set(task.id, { status: 'completed', completedAt: task.completedAt } as any as UserTaskProgress)
-    rewards.value.push({ id: `reward_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, taskId: task.id, taskName: task.name, reward: task.reward, earnedAt: task.completedAt } as any as Reward)
+    task.status = 'completed'
+    task.completedAt = Date.now()
+    // Construct named instances directly. `as any as X` was hiding the fact these
+    // were plain objects, not Kotlin data class instances — fine until any consumer
+    // tried to invoke a typed property on them.
+    const progress: UserTaskProgress = {
+      status: 'completed',
+      completedAt: task.completedAt!!
+    }
+    userTasks.value.set(task.id, progress)
+    const reward: Reward = {
+      id: `reward_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      taskId: task.id,
+      taskName: task.name,
+      reward: task.reward,
+      earnedAt: task.completedAt!!,
+      userId: task.userId
+    }
+    rewards.value.push(reward)
     completed.push(task)
   })
   if (completed.length > 0) persist()
