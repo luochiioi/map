@@ -25,7 +25,7 @@ export const useLocationStore = defineStore('location', () => {
   })
 
   function applyLocation(res: UTSJSONObject): void {
-    const acc: number = res["accuracy"] as number ?? 0
+    const acc: number = (res["accuracy"] as number) ?? 0
     accuracy.value = acc
     if (acc > 150) return
     currentLocation.value = {
@@ -45,17 +45,17 @@ export const useLocationStore = defineStore('location', () => {
           type: 'gcj02',
           isHighAccuracy: true,
           highAccuracyExpireTime: 6000,
-          success: (res: any): void => { applyLocation(res) }
+          success: (res: any): void => { applyLocation(res as UTSJSONObject) }
         })
       }
     })
-    uni.onLocationChange((res: any): void => { applyLocation(res) })
+    uni.onLocationChange((res: any): void => { applyLocation(res as UTSJSONObject) })
   }
 
   function stopTracking(): void {
     isTracking.value = false
     uni.offLocationChange()
-    uni.stopLocationUpdate()
+    uni.stopLocationUpdate({})
   }
 
   function pollLocationOnce(): Promise<LocationData> {
@@ -65,10 +65,11 @@ export const useLocationStore = defineStore('location', () => {
         isHighAccuracy: true,
         highAccuracyExpireTime: 6000,
         success: (res: any): void => {
+          const r = res as UTSJSONObject
           const loc: LocationData = {
-            latitude: res.latitude as number,
-            longitude: res.longitude as number,
-            accuracy: res.accuracy ?? 0
+            latitude: r["latitude"] as number,
+            longitude: r["longitude"] as number,
+            accuracy: (r["accuracy"] as number) ?? 0
           }
           accuracy.value = loc.accuracy
           currentLocation.value = loc
@@ -85,7 +86,7 @@ export const useLocationStore = defineStore('location', () => {
         type: 'gcj02',
         isHighAccuracy: true,
         highAccuracyExpireTime: 6000,
-        success: (res: any): void => { applyLocation(res) }
+        success: (res: any): void => { applyLocation(res as UTSJSONObject) }
       })
     }
     poll()
