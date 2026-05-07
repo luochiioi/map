@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="uts">
-  import { computed } from 'vue'
+  import { ref, watchEffect } from 'vue'
 
   // SdkMarker — fully-qualified alias dodges UTS Marker name-collision.
   type SdkMarker = uts.sdk.modules.DCloudUniMapTencent.Marker
@@ -66,17 +66,19 @@
 
   const emit = defineEmits(['markertap', 'longpress', 'regionchange'])
 
-  // renderedMarkers — convert plain MarkerInput[] into SDK Marker[].
+  // renderedMarkers — SDK Marker[] for the <map :markers> binding.
   //
-  // Code-shape rules (each one fixed a real compile error in earlier rounds):
-  //  - Use explicit `return {...}` body, NOT arrow-shorthand `=> ({...})`.
-  //    UTS parses `=> ({` as `Function -> block` rather than object literal,
-  //    yielding `UTSArray<Unit>` mismatch.
-  //  - SdkMarker only appears after `as`, never in `: T` annotations or `<T>`.
-  //  - No intermediate typed array variables (no `let result: SdkMarker[] = []`).
-  const renderedMarkers = computed(() => {
-    return props.markersData.map((m: MarkerInput) => {
-      return {
+  // Final shape (after multiple rounds of failures, see UTS_COMPILE_PITFALLS §F):
+  //  - ref + watchEffect, NOT computed —— UTS 在这里推不出 .map() / computed 返回类型
+  //  - forEach + push, NOT .map() —— UTS 把 `(m) => ({...} as SdkMarker)` 错误识别为 Unit
+  //  - SdkMarker only appears after `as` —— 永不写在 `: T` 注解或 `<T>` 泛型里
+  //  - 严格照搬 uni_modules/uni-openLocation/pages/openLocation/openLocation.uvue 的写法
+  const renderedMarkers = ref([] as SdkMarker[])
+
+  watchEffect(() => {
+    const arr = [] as SdkMarker[]
+    props.markersData.forEach((m: MarkerInput) => {
+      arr.push({
         id: m.id,
         latitude: m.latitude,
         longitude: m.longitude,
@@ -84,8 +86,9 @@
         iconPath: m.iconPath,
         width: m.width,
         height: m.height
-      } as SdkMarker
+      } as SdkMarker)
     })
+    renderedMarkers.value = arr
   })
 
   function onMarkerTap(e: UniMapMarkerTapEvent): void {
