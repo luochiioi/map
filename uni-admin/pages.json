@@ -35,6 +35,12 @@
       "style": {
         "navigationBarTitleText": "任务管理"
       }
+    },
+    {
+      "path": "pages/audit/index",
+      "style": {
+        "navigationBarTitleText": "审计日志"
+      }
     }
   ],
   "globalStyle": {

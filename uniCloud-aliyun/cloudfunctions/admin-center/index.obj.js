@@ -18,6 +18,7 @@ const {
   normalizeAdminUsers,
   buildSyncDiagnostics
 } = require('./marker-service')
+const { buildAuditLogEntry, ALLOWED_TYPES: AUDIT_TYPES } = require('./audit-service')
 
 const colMarkers = db.collection('tourism_markers')
 const colUsers = db.collection('uni-id-users')
@@ -25,6 +26,17 @@ const colUserProfiles = db.collection('users')
 const colTasks = db.collection('tourism_tasks')
 const colUserTasks = db.collection('user_tasks')
 const colRewards = db.collection('rewards')
+const colAuditLogs = db.collection('tourism_audit_logs')
+
+async function appendAuditLog(input) {
+  const row = buildAuditLogEntry(input)
+  if (!row) return
+  try {
+    await colAuditLogs.add(row)
+  } catch (e) {
+    console.log('[audit] append failed', e && e.message ? e.message : e)
+  }
+}
 
 function ok(data, errMsg) {
   return { errCode: 0, errMsg: errMsg || 'ok', data }
@@ -49,6 +61,13 @@ function isAdminUser(user) {
   const permission = user.permission
   if (Array.isArray(permission) && permission.includes('admin')) return true
   return false
+}
+
+function resolveLookupName(userLookup, uid) {
+  if (!uid) return ''
+  if (!userLookup || typeof userLookup.get !== 'function') return String(uid)
+  const found = userLookup.get(String(uid))
+  return found && found.userName ? found.userName : String(uid)
 }
 
 function markerListQuery(keyword) {
@@ -309,6 +328,19 @@ module.exports = {
       }
     }
 
+    await appendAuditLog({
+      type: 'admin.deleteCheckinRecord',
+      actorUid: this.auth.uid,
+      targetUid: targetUserId,
+      markerId: marker.id,
+      markerTitle: marker.title,
+      photoCloudURL: photoCloudURL || null,
+      checkedAt: targetCheckedAt,
+      reason: String(payload.reason || ''),
+      purgePhoto,
+      purgeError
+    })
+
     return ok({
       deleted: true,
       removedCount: plan.removedCount,
@@ -380,6 +412,19 @@ module.exports = {
 
     await colUsers.doc(targetId).remove()
 
+    await appendAuditLog({
+      type: 'admin.deleteUser',
+      actorUid: this.auth.uid,
+      targetUid: targetId,
+      markerId: null,
+      markerTitle: target.username || target.nickname || '',
+      photoCloudURL: null,
+      checkedAt: null,
+      reason: String((data && data.reason) || ''),
+      purgePhoto: false,
+      purgeError: ''
+    })
+
     return ok({
       deleted: true,
       markerPatched,
@@ -388,6 +433,41 @@ module.exports = {
       userTasksRemoved,
       rewardsRemoved
     }, '用户及关联数据已删除')
+  },
+
+  // P3.4 审计页查询：按 occurredAt 倒序分页；可选 type 过滤。
+  // 直接返回原始 row，前端自行 buildUserLookup（uniCloud-clientDB 也行；
+  // 但保持 cloudobj 是一站式接口，与 getCheckins 设计一致）。
+  async getAuditLogs(data) {
+    const { offset, limit } = toPageArgs(data)
+    const where = {}
+    if (data && data.type && AUDIT_TYPES.has(data.type)) {
+      where.type = data.type
+    }
+    const baseQuery = Object.keys(where).length === 0 ? colAuditLogs : colAuditLogs.where(where)
+    const [totalRes, listRes] = await Promise.all([
+      baseQuery.count(),
+      baseQuery.orderBy('occurredAt', 'desc').skip(offset).limit(limit).get()
+    ])
+    const userRes = await colUsers.field({ _id: true, username: true, nickname: true }).get()
+    const userLookup = buildUserLookup(userRes.data)
+    const list = (listRes.data || []).map(row => ({
+      _id: row._id,
+      type: row.type,
+      actorUid: row.actorUid,
+      actorName: resolveLookupName(userLookup, row.actorUid),
+      targetUid: row.targetUid,
+      targetName: resolveLookupName(userLookup, row.targetUid),
+      markerId: row.markerId,
+      markerTitle: row.markerTitle,
+      photoCloudURL: row.photoCloudURL,
+      checkedAt: row.checkedAt,
+      reason: row.reason,
+      purgePhoto: row.purgePhoto === true,
+      purgeError: row.purgeError || '',
+      occurredAt: row.occurredAt
+    }))
+    return ok({ list, total: totalRes.total, offset, limit })
   },
 
   async createMarker(data) {

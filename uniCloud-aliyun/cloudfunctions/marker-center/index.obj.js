@@ -3,8 +3,33 @@ const col = db.collection('tourism_markers')
 const colTasks = db.collection('user_tasks')
 const colRewards = db.collection('rewards')
 const colUserProfiles = db.collection('users')
+const colAuditLogs = db.collection('tourism_audit_logs')
 const authUtil = require('auth-util')
 const { createRepairCheckinPlan, createDeleteCheckinPlan } = require('./repair-service')
+
+// 仅记录用户自删事件；admin-center.audit-service 持有规范化 helper，本文件
+// 不跨 cloudfunction require，只复刻最小写法保持表结构一致（参见
+// admin-center/audit-service.js 的 buildAuditLogEntry）。
+async function appendUserDeleteAudit(input) {
+  try {
+    const occurredAt = Date.now()
+    await colAuditLogs.add({
+      type: 'user.deleteCheckin',
+      actorUid: String(input.actorUid || ''),
+      targetUid: String(input.actorUid || ''),
+      markerId: input.markerId != null ? Number(input.markerId) : null,
+      markerTitle: String(input.markerTitle || ''),
+      photoCloudURL: input.photoCloudURL ? String(input.photoCloudURL) : null,
+      checkedAt: input.checkedAt != null ? Number(input.checkedAt) : null,
+      reason: '',
+      purgePhoto: false,
+      purgeError: '',
+      occurredAt
+    })
+  } catch (e) {
+    console.log('[audit] user.deleteCheckin append failed', e && e.message ? e.message : e)
+  }
+}
 
 module.exports = {
   _before: async function() {
@@ -133,6 +158,12 @@ module.exports = {
     if (!markerRes.data.length) return { errCode: -1, errMsg: '打卡点不存在' }
     const marker = markerRes.data[0]
 
+    // 抓取自己这一条 entry 的 photoCloudURL / checkedAt 用于审计；
+    // createDeleteCheckinPlan 之后 checkedBy 里就没这条了。
+    const myEntry = (marker.checkedBy || []).find(entry =>
+      entry && String(entry.userId || '') === String(this.auth.uid)
+    )
+
     const plan = createDeleteCheckinPlan(marker, this.auth.uid)
     if (!plan.shouldDelete) {
       return { errCode: 0, errMsg: '记录不存在', data: { deleted: false, existed: false } }
@@ -143,6 +174,14 @@ module.exports = {
       checkinCount: plan.checkinCount,
       checkedBy: plan.checkedBy,
       updatedAt: Date.now()
+    })
+
+    await appendUserDeleteAudit({
+      actorUid: this.auth.uid,
+      markerId: marker.id,
+      markerTitle: marker.title,
+      photoCloudURL: myEntry && myEntry.photoCloudURL ? myEntry.photoCloudURL : null,
+      checkedAt: myEntry && myEntry.checkedAt != null ? myEntry.checkedAt : null
     })
 
     return {

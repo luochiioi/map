@@ -59,7 +59,10 @@
     <view class="section">
       <view class="section-header">
         <text class="section-title">最近打卡记录</text>
-        <text class="section-action" @click="goToCheckins">查看全部 ›</text>
+        <view class="section-actions">
+          <text class="section-action" @click="goToAudit">审计日志</text>
+          <text class="section-action" @click="goToCheckins">查看全部 ›</text>
+        </view>
       </view>
       <view v-if="!loading && checkins.length === 0" class="empty">
         暂无云端打卡记录。若之前是在默认点同步前完成的本地打卡，需要同步默认点后重新打卡，或让客户端补传后才会出现在这里。
@@ -143,6 +146,10 @@ function formatTime(ts) {
 
 function goToCheckins() {
   uni.switchTab({ url: '/pages/checkins/index' })
+}
+
+function goToAudit() {
+  uni.navigateTo({ url: '/pages/audit/index' })
 }
 </script>
 
@@ -238,6 +245,12 @@ function goToCheckins() {
   font-size: 30rpx;
   font-weight: bold;
   color: #333;
+}
+
+.section-actions {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
 }
 
 .section-action {
