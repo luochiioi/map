@@ -64,7 +64,7 @@ async function fetchUsers() {
     if (res.errCode === 0) {
       if (offset === 0) users.value = res.data
       else users.value = [...users.value, ...res.data]
-      hasMore = res.data.length >= limit
+      hasMore.value = res.data.length >= limit
       offset += limit
     }
   } catch (e) { console.error(e) }

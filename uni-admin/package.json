@@ -1,0 +1,20 @@
+{
+  "name": "map-checkin-uni-admin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "地图打卡管理后台",
+  "scripts": {
+    "dev:h5": "uni -p h5",
+    "build:h5": "uni build -p h5"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "latest",
+    "@dcloudio/uni-components": "latest",
+    "@dcloudio/uni-h5": "latest",
+    "vue": "^3.4.21"
+  },
+  "devDependencies": {
+    "@dcloudio/vite-plugin-uni": "latest",
+    "vite": "^5.2.8"
+  }
+}
