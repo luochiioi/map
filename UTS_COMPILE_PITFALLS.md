@@ -939,3 +939,30 @@ function isCheckedByUser(marker: CheckinMarker, uid: string): boolean {
 ```
 
 详情面板状态、打卡按钮、我的打卡卡片都应看当前 uid；总人数、他人足迹和后台统计才看 `checkinCount` 或 `checkedBy.length`。
+
+### 规则 19：云对象业务失败不能进入本地成功链路
+
+P3.2 复测发现：`marker-center.checkin()` 返回“您已在此处打过卡”这类业务失败时，App 端可能进入 `catch`，同时 uniCloud 默认 UI 弹出业务错误；如果 `catch` 无条件 `enqueueAction()` 并继续执行本地 `doCheckIn()`，就会出现两个弹窗叠加、后台无记录但本地显示成功、任务重复完成、几秒后云端刷新又把本地状态冲掉。
+
+修正规则：
+
+- 打卡页导入云对象时使用 `{ customUI: true } as UniCloudImportObjectOptions`，避免默认错误弹窗和业务 toast 叠加。
+- `catch` 中必须解析错误信息；“请先登录 / 已在此处打过卡 / 距离过远”等业务失败直接停止，不进入本地成功链路。
+- 只有真实网络/云对象不可达，或明确允许离线队列的场景，才进入 `enqueueAction('checkin', payload)`。
+
+### 规则 20：云端 marker 基础字段必须覆盖本地字段
+
+后台修改 marker 名称后，App 端 `syncMarkers()` 不能只合并 `checkedBy/checkinCount`。云端应作为 marker 基础信息的事实来源，同步时至少覆盖：
+
+```ts
+local._id = cloudMarker._id
+local.title = cloudMarker.title
+local.latitude = cloudMarker.latitude
+local.longitude = cloudMarker.longitude
+local.width = cloudMarker.width
+local.height = cloudMarker.height
+local.createdBy = cloudMarker.createdBy
+local.createdAt = cloudMarker.createdAt
+```
+
+同时仍要保留本机专属的 `photoPath`，因为云端不会持有本地临时文件路径。

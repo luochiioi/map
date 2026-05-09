@@ -14,9 +14,9 @@
         const userId = data["userId"] as string
         const userName = data["userName"] as string
         refreshUserInfo({ userId, userName } as UserInfo)
+        syncMarkers(userId)
       }
       console.log('Token 验证通过')
-      syncMarkers()
     } catch (e) {
       console.log('Token 验证失败', e)
     }

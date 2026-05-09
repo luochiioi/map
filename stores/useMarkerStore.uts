@@ -132,9 +132,9 @@ export function findByTitle(title: string): CheckinMarker | null {
   return found ?? null
 }
 
-export async function syncFromCloud(): Promise<number> {
+export async function syncFromCloud(currentUid: string | null): Promise<number> {
   isLoading.value = true
-  const merged = await syncMarkers()
+  const merged = await syncMarkers(currentUid)
   if (merged.length > 0) {
     // 同 loadFromStorage：基于 checked 状态强制重写 iconPath，杜绝远程 URL 渗漏
     merged.forEach((m: CheckinMarker) => {

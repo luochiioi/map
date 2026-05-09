@@ -92,6 +92,39 @@ const canSubmit = computed((): boolean => {
   return withinRange.value && isSubmitting.value == false
 })
 
+function getCloudErrorMessage(e: any): string {
+  try {
+    const err = e as Error
+    if (err.message.length > 0) return err.message
+  } catch (_err) {}
+  try {
+    const json = JSON.stringify(e)
+    const obj = JSON.parse<UTSJSONObject>(json)
+    const errMsg = obj["errMsg"] as string | null
+    if (errMsg != null && errMsg.length > 0) return errMsg
+    const message = obj["message"] as string | null
+    if (message != null && message.length > 0) return message
+  } catch (_err2) {}
+  return ''
+}
+
+function isBusinessCheckinFailure(errMsg: string): boolean {
+  if (errMsg.indexOf('请先登录') >= 0) return true
+  if (errMsg.indexOf('已在此处打过卡') >= 0) return true
+  if (errMsg.indexOf('距离过远') >= 0) return true
+  return false
+}
+
+function enqueueCheckinForLater(): void {
+  const payload = JSON.parse('{}') as UTSJSONObject
+  payload["markerId"] = markerId.value
+  payload["photoCloudURL"] = cloudURL.value
+  payload["note"] = note.value
+  payload["latitude"] = currentLocation.value?.latitude
+  payload["longitude"] = currentLocation.value?.longitude
+  enqueueAction('checkin', payload)
+}
+
 onLoad((options: OnLoadOptions): void => {
   const idStr = options['id'] as string | null
   const titleStr = options['title'] as string | null
@@ -164,7 +197,7 @@ async function doSubmit(): Promise<void> {
     }
 
     try {
-      const markerApi = uniCloud.importObject('marker-center')
+      const markerApi = uniCloud.importObject('marker-center', { customUI: true } as UniCloudImportObjectOptions)
       const checkinRes = await markerApi.checkin({
         markerId: markerId.value,
         photoCloudURL: cloudURL.value,
@@ -183,11 +216,7 @@ async function doSubmit(): Promise<void> {
             }
           })
         } else if (errMsg === '打卡点不存在') {
-          const payload = JSON.parse('{}') as UTSJSONObject
-          payload["markerId"] = markerId.value; payload["photoCloudURL"] = cloudURL.value
-          payload["note"] = note.value; payload["latitude"] = currentLocation.value?.latitude
-          payload["longitude"] = currentLocation.value?.longitude
-          enqueueAction('checkin', payload)
+          enqueueCheckinForLater()
         } else {
           uni.showToast({ title: errMsg, icon: 'none' })
           isSubmitting.value = false
@@ -199,11 +228,14 @@ async function doSubmit(): Promise<void> {
         }
       }
     } catch (e) {
-      const payload = JSON.parse('{}') as UTSJSONObject
-      payload["markerId"] = markerId.value; payload["photoCloudURL"] = cloudURL.value
-      payload["note"] = note.value; payload["latitude"] = currentLocation.value?.latitude
-      payload["longitude"] = currentLocation.value?.longitude
-      enqueueAction('checkin', payload)
+      const errMsg = getCloudErrorMessage(e)
+      console.log('marker-center.checkin failed', errMsg, e)
+      if (isBusinessCheckinFailure(errMsg)) {
+        uni.showToast({ title: errMsg.length > 0 ? errMsg : '打卡失败', icon: 'none' })
+        isSubmitting.value = false
+        return
+      }
+      enqueueCheckinForLater()
     }
 
     const userId = userState.userInfo != null ? userState.userInfo!!.userId : null

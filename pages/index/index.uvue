@@ -262,7 +262,9 @@ function fmtTime(ts: number): string {
 
 async function refreshCloudAndPanel(markerId: number): Promise<void> {
   try {
-    const count = await syncFromCloud()
+    const user = userState.userInfo
+    const uid = user != null ? user.userId : null
+    const count = await syncFromCloud(uid)
     if (count > 0 && markerId > 0) {
       const fresh = findById(markerId)
       if (fresh != null) setActiveMarker(fresh)

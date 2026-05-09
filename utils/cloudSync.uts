@@ -152,7 +152,15 @@ export async function pullMarkers(): Promise<UTSJSONObject[]> {
 
 // ===== Sync markers: pull cloud + merge with local =====
 
-export async function syncMarkers(): Promise<CheckinMarker[]> {
+function findCheckinByUser(marker: CheckinMarker, uid: string | null): CheckinEntry | null {
+  if (uid == null || uid.length == 0) return null
+  const list = marker.checkedBy
+  if (list == null) return null
+  const found = list.find((entry: CheckinEntry): boolean => entry.userId == uid)
+  return found ?? null
+}
+
+export async function syncMarkers(currentUid: string | null): Promise<CheckinMarker[]> {
   const localMarkers = loadMarkers()
   const cloudData = await pullMarkers()
 
@@ -186,22 +194,46 @@ export async function syncMarkers(): Promise<CheckinMarker[]> {
 
     if (local == null) {
       // New cloud marker not in local: add it
+      const userEntry = findCheckinByUser(cloudMarker, currentUid)
+      cloudMarker.checked = userEntry != null
+      if (userEntry != null) {
+        cloudMarker.checkedAt = userEntry.checkedAt
+        cloudMarker.photoCloudURL = userEntry.photoCloudURL
+        cloudMarker.note = userEntry.note
+      } else {
+        cloudMarker.checkedAt = null
+        cloudMarker.photoCloudURL = null
+        cloudMarker.note = null
+      }
       merged.set(cloudMarker.id, cloudMarker)
     } else {
-      // Both exist: cloud 永远是 checkedBy / checkinCount 的权威来源
+      // Both exist: cloud 是基础信息、checkedBy / checkinCount 的权威来源；
+      // checked 只表示当前用户自己的状态，不能继承云端全局 checked。
+      local._id = cloudMarker._id
+      local.title = cloudMarker.title
+      local.latitude = cloudMarker.latitude
+      local.longitude = cloudMarker.longitude
+      local.width = cloudMarker.width
+      local.height = cloudMarker.height
+      local.createdBy = cloudMarker.createdBy
+      local.createdAt = cloudMarker.createdAt
       local.checkedBy = cloudMarker.checkedBy
       local.checkinCount = cloudMarker.checkinCount
-      if (cloudMarker.checked) {
+      const userEntry = findCheckinByUser(cloudMarker, currentUid)
+      if (userEntry != null) {
         local.checked = true
-        if (local.checkedAt == null) local.checkedAt = now
+        local.checkedAt = userEntry.checkedAt
+        local.photoCloudURL = userEntry.photoCloudURL
+        local.note = userEntry.note
+      } else if (currentUid != null && currentUid.length > 0) {
+        local.checked = false
+        local.checkedAt = null
+        local.photoCloudURL = null
+        local.note = null
       }
       // 保留 local.photoPath（本地拍照路径，云端没有）
       if (cloudMarker.photoPath != null) {
         local.photoPath = cloudMarker.photoPath
-      }
-      // photoCloudURL 也应以云端为准
-      if (cloudMarker.photoCloudURL != null) {
-        local.photoCloudURL = cloudMarker.photoCloudURL
       }
     }
   }
@@ -220,6 +252,11 @@ export function findRepairableCheckins(localList: CheckinMarker[], cloudList: Ch
   const ids: number[] = []
   localList.forEach((localMarker: CheckinMarker): void => {
     if (localMarker.checked == false) return
+    const localCheckedBy = localMarker.checkedBy
+    if (localCheckedBy != null) {
+      const localHasCurrentUser = localCheckedBy.some((entry: CheckinEntry): boolean => entry.userId == uid)
+      if (!localHasCurrentUser) return
+    }
     const cloudMarker = cloudList.find((item: CheckinMarker): boolean => item.id == localMarker.id)
     if (cloudMarker == null) return
     const checkedBy = cloudMarker.checkedBy
@@ -230,12 +267,12 @@ export function findRepairableCheckins(localList: CheckinMarker[], cloudList: Ch
 }
 
 export async function repairMissingCheckins(uid: string): Promise<number> {
-  const cloudList = await syncMarkers()
   const localList = loadMarkers()
+  const cloudList = await syncMarkers(null)
   const repairIds = findRepairableCheckins(localList, cloudList, uid)
   if (repairIds.length == 0) return 0
 
-  const markerApi = uniCloud.importObject('marker-center')
+  const markerApi = uniCloud.importObject('marker-center', { customUI: true } as UniCloudImportObjectOptions)
   for (let i = 0; i < repairIds.length; i++) {
     const marker = localList.find((item: CheckinMarker): boolean => item.id == repairIds[i])
     if (marker == null) continue
@@ -247,7 +284,7 @@ export async function repairMissingCheckins(uid: string): Promise<number> {
     await markerApi.repairCheckin(payload)
   }
 
-  await syncMarkers()
+  await syncMarkers(uid)
   return repairIds.length
 }
 
