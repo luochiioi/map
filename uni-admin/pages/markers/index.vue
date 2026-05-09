@@ -63,7 +63,7 @@
           <text class="card-meta strong">打卡人数 / 记录数：{{ m.checkinCount || 0 }}</text>
         </view>
         <view class="card-actions">
-          <text class="act-btn record" @click="viewCheckins(m)">记录</text>
+          <text class="act-btn record" @click="viewCheckins(m)">查看记录</text>
           <text class="act-btn edit" @click="startEdit(m)">编辑</text>
           <text class="act-btn del" @click="doDelete(m)">删除</text>
         </view>

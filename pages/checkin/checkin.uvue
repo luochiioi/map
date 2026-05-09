@@ -206,7 +206,8 @@ async function doSubmit(): Promise<void> {
       enqueueAction('checkin', payload)
     }
 
-    const updatedMarker = await doCheckIn(markerId.value, photoPath.value, note.value != '' ? note.value : null)
+    const userId = userState.userInfo != null ? userState.userInfo!!.userId : null
+    const updatedMarker = await doCheckIn(markerId.value, photoPath.value, note.value != '' ? note.value : null, userId, cloudURL.value)
     const completed = checkTaskCompletion(marker.value)
     // 主地图 onShow 调 consumeFocus()，移到打卡完成的点并打开详情面板，
     // 用户回到地图能立即看到刚刚打卡的成果。

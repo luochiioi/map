@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import type { CheckinMarker, NewMarkerInput } from '@/types/marker'
+import type { CheckinMarker, CheckinEntry, NewMarkerInput } from '@/types/marker'
 import { loadMarkers, saveMarkers } from '@/utils/storage'
 import { getDefaultMarkers } from '@/utils/defaults'
 import { syncMarkers } from '@/utils/cloudSync'
@@ -17,6 +17,16 @@ export const doneCount = computed((): number => checkedMarkers.value.length)
 export const completionRate = computed((): number => {
   return totalCount.value === 0 ? 0 : Math.round((doneCount.value / totalCount.value) * 100)
 })
+
+export function isCheckedByUser(marker: CheckinMarker, uid: string): boolean {
+  const list = marker.checkedBy
+  if (list == null) return false
+  return list.some((entry: CheckinEntry): boolean => entry.userId === uid)
+}
+
+export function loadLocalMarkersForRepair(): CheckinMarker[] {
+  return loadMarkers()
+}
 
 // 注：原本这里有 displayMarkers / miniMapMarkers 导出，把 CheckinMarker 转成
 // SDK 原生 Marker[]。但 .uts 文件里 `Marker` 这个名字会被 UTS 编译器在
@@ -70,14 +80,30 @@ export async function addMarker(input: NewMarkerInput): Promise<CheckinMarker> {
   return marker
 }
 
-export async function doCheckIn(markerId: number, photoPath: string | null, note: string | null): Promise<CheckinMarker> {
+export async function doCheckIn(markerId: number, photoPath: string | null, note: string | null, userId: string | null, photoCloudURL: string | null): Promise<CheckinMarker> {
   const idx = markers.value.findIndex((m: CheckinMarker): boolean => m.id === markerId)
   if (idx === -1) throw new Error('CheckinMarker not found: ' + markerId)
+  const checkedAt = Date.now()
   markers.value[idx].checked = true
-  markers.value[idx].checkedAt = Date.now()
+  markers.value[idx].checkedAt = checkedAt
   markers.value[idx].iconPath = CHECKED_MARKER_ICON
   if (photoPath != null) markers.value[idx].photoPath = photoPath
+  if (photoCloudURL != null) markers.value[idx].photoCloudURL = photoCloudURL
   if (note != null) markers.value[idx].note = note
+  if (userId != null) {
+    if (markers.value[idx].checkedBy == null) markers.value[idx].checkedBy = [] as CheckinEntry[]
+    const list = markers.value[idx].checkedBy!!
+    const exists = list.some((entry: CheckinEntry): boolean => entry.userId === userId)
+    if (!exists) {
+      list.push({
+        userId: userId,
+        checkedAt: checkedAt,
+        photoCloudURL: photoCloudURL,
+        note: note
+      } as CheckinEntry)
+      markers.value[idx].checkinCount = list.length
+    }
+  }
   persist()
   return markers.value[idx]
 }

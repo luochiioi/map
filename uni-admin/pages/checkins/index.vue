@@ -45,6 +45,7 @@
         />
         <view class="entry-info">
           <text class="entry-user">打卡人：{{ record.userId || '--' }}</text>
+          <text v-if="record.repaired" class="entry-repaired">历史补传</text>
           <text class="entry-time">打卡时间：{{ formatTime(record.checkedAt) }}</text>
           <text v-if="record.photoCloudURL" class="entry-url">照片 URL：{{ record.photoCloudURL }}</text>
           <text v-if="record.note" class="entry-note">备注：{{ record.note }}</text>
@@ -265,6 +266,7 @@ function previewPhoto(url) {
 }
 
 .entry-user { font-size: 26rpx; color: #333; }
+.entry-repaired { font-size: 22rpx; color: #9a6b00; background: #fff7d6; border-radius: 999rpx; padding: 4rpx 12rpx; align-self: flex-start; }
 .entry-time { font-size: 22rpx; color: #aaa; }
 .entry-url { font-size: 22rpx; color: #1677ff; word-break: break-all; }
 .entry-note { font-size: 24rpx; color: #666; margin-top: 4rpx; }

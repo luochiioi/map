@@ -228,12 +228,31 @@ function flattenCheckinRecords(markers) {
         userId: entry.userId || '',
         checkedAt: entry.checkedAt || 0,
         photoCloudURL: entry.photoCloudURL || null,
-        note: entry.note || null
+        note: entry.note || null,
+        repaired: entry.repaired === true
       })
     })
   })
   records.sort((a, b) => (b.checkedAt || 0) - (a.checkedAt || 0))
   return records
+}
+
+function buildSyncDiagnostics(markers, users) {
+  let checkinTotal = 0
+  let markerWithCheckins = 0
+
+  ;(markers || []).forEach(marker => {
+    const count = Array.isArray(marker && marker.checkedBy) ? marker.checkedBy.length : 0
+    checkinTotal += count
+    if (count > 0) markerWithCheckins += 1
+  })
+
+  return {
+    markerTotal: (markers || []).length,
+    markerWithCheckins,
+    checkinTotal,
+    userTotal: (users || []).length
+  }
 }
 
 function ensureStats(map, userId) {
@@ -299,5 +318,6 @@ module.exports = {
   sanitizeMarkerUpdate,
   flattenCheckinRecords,
   deriveUserStatsFromMarkers,
-  normalizeAdminUsers
+  normalizeAdminUsers,
+  buildSyncDiagnostics
 }

@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="uts">
-import { ref, computed, onShow } from 'vue'
+import { ref, computed } from 'vue'
 import { markers, checkedMarkers, pendingMarkers, totalCount, doneCount, loadFromStorage as loadMarkers, deleteMarker, findById, findByTitle } from '@/stores/useMarkerStore'
 import { tasks, completedTaskCount, totalTaskCount, loadFromStorage as loadTasks, requestTaskDetail } from '@/stores/useTaskStore'
 import { achievements, unlockedCount } from '@/stores/useAchievementStore'

@@ -32,6 +32,30 @@
       </view>
     </view>
 
+    <view class="section diagnostics-section">
+      <view class="section-header">
+        <text class="section-title">同步诊断</text>
+      </view>
+      <view class="diagnostics-grid">
+        <view class="diag-item">
+          <text class="diag-value">{{ diagnostics.markerTotal }}</text>
+          <text class="diag-label">云端打卡点</text>
+        </view>
+        <view class="diag-item">
+          <text class="diag-value">{{ diagnostics.markerWithCheckins }}</text>
+          <text class="diag-label">有记录的点</text>
+        </view>
+        <view class="diag-item">
+          <text class="diag-value">{{ diagnostics.checkinTotal }}</text>
+          <text class="diag-label">云端记录</text>
+        </view>
+        <view class="diag-item">
+          <text class="diag-value">{{ diagnostics.userTotal }}</text>
+          <text class="diag-label">uni-id 用户</text>
+        </view>
+      </view>
+    </view>
+
     <view class="section">
       <view class="section-header">
         <text class="section-title">最近打卡记录</text>
@@ -66,6 +90,12 @@ const dashboard = ref({
   totalCheckins: 0,
   totalTasks: 0
 })
+const diagnostics = ref({
+  markerTotal: 0,
+  markerWithCheckins: 0,
+  checkinTotal: 0,
+  userTotal: 0
+})
 const checkins = ref([])
 const loading = ref(false)
 const errorText = ref('')
@@ -80,6 +110,10 @@ async function loadDashboard() {
     const res = await api.getDashboard()
     if (res.errCode !== 0) throw new Error(res.errMsg || '仪表盘加载失败')
     dashboard.value = res.data || dashboard.value
+
+    const dres = await api.getSyncDiagnostics()
+    if (dres.errCode !== 0) throw new Error(dres.errMsg || '同步诊断加载失败')
+    diagnostics.value = dres.data || diagnostics.value
 
     const cres = await api.getCheckins({ offset: 0, limit: 10 })
     if (cres.errCode !== 0) throw new Error(cres.errMsg || '打卡记录加载失败')
@@ -154,6 +188,34 @@ function goToCheckins() {
   background: #fff;
   border-radius: 16rpx;
   padding: 24rpx;
+}
+
+.diagnostics-section {
+  margin-bottom: 24rpx;
+}
+
+.diagnostics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12rpx;
+}
+
+.diag-item {
+  background: #f8faf9;
+  border-radius: 12rpx;
+  padding: 18rpx;
+}
+
+.diag-value {
+  display: block;
+  color: #1677ff;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.diag-label {
+  color: #789086;
+  font-size: 22rpx;
 }
 
 .section-header {

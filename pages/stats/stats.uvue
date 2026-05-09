@@ -39,7 +39,6 @@
 </template>
 
 <script setup lang="uts">
-import { onShow } from 'vue'
 import { checkedMarkers, pendingMarkers, totalCount, doneCount, completionRate, loadFromStorage as loadMarkers } from '@/stores/useMarkerStore'
 import { completedTaskCount, totalTaskCount, loadFromStorage as loadTasks } from '@/stores/useTaskStore'
 import { unlockedCount } from '@/stores/useAchievementStore'

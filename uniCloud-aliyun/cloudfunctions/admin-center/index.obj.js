@@ -11,7 +11,8 @@ const {
   sanitizeMarkerUpdate,
   flattenCheckinRecords,
   deriveUserStatsFromMarkers,
-  normalizeAdminUsers
+  normalizeAdminUsers,
+  buildSyncDiagnostics
 } = require('./marker-service')
 
 const colMarkers = db.collection('tourism_markers')
@@ -89,6 +90,15 @@ module.exports = {
       totalCheckins,
       totalTasks: tasks.total
     })
+  },
+
+  async getSyncDiagnostics() {
+    const [markersRes, usersRes] = await Promise.all([
+      colMarkers.field({ id: true, checkedBy: true }).get(),
+      colUsers.field({ _id: true }).get()
+    ])
+
+    return ok(buildSyncDiagnostics(markersRes.data, usersRes.data))
   },
 
   async getUsers(data) {

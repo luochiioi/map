@@ -4,6 +4,7 @@ const colTasks = db.collection('user_tasks')
 const colRewards = db.collection('rewards')
 const colUserProfiles = db.collection('users')
 const authUtil = require('auth-util')
+const { createRepairCheckinPlan } = require('./repair-service')
 
 module.exports = {
   _before: async function() {
@@ -83,6 +84,38 @@ module.exports = {
     const completedTasks = await checkTasksForMarker(this.auth.uid, marker)
 
     return { errCode: 0, errMsg: '打卡成功', data: { completedTasks } }
+  },
+
+  async repairCheckin(data) {
+    if (!this.auth.uid) return { errCode: -1, errMsg: '请先登录' }
+    const payload = data || {}
+    const markerId = Number(payload.markerId)
+    if (!markerId) return { errCode: -1, errMsg: '缺少打卡点 ID' }
+
+    const markerRes = await col.where({ id: markerId }).limit(1).get()
+    if (!markerRes.data.length) return { errCode: -1, errMsg: '打卡点不存在' }
+    const marker = markerRes.data[0]
+
+    const now = Date.now()
+    const plan = createRepairCheckinPlan(marker, payload, this.auth.uid, now)
+    if (!plan.shouldRepair) {
+      return { errCode: 0, errMsg: '记录已存在', data: { repaired: false, existed: true } }
+    }
+
+    await col.doc(marker._id).update({
+      checked: true,
+      checkinCount: db.command.inc(1),
+      checkedBy: db.command.push([plan.entry]),
+      updatedAt: now
+    })
+
+    await incrementUserStats(this.auth.uid, {
+      totalCheckins: 1,
+      totalPhotos: plan.entry.photoCloudURL ? 1 : 0
+    })
+
+    const completedTasks = await checkTasksForMarker(this.auth.uid, marker)
+    return { errCode: 0, errMsg: '补传成功', data: { repaired: true, completedTasks } }
   },
 
   async _checkTasks(marker) {

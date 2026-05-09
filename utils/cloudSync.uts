@@ -1,5 +1,5 @@
 // 云端同步：离线队列 + 批量推送 + 数据合并
-import type { CheckinMarker } from '@/types/marker'
+import type { CheckinMarker, CheckinEntry } from '@/types/marker'
 import { loadMarkers, saveMarkers } from '@/utils/storage'
 
 const KEY_SYNC_QUEUE = 'sync_queue'
@@ -212,6 +212,43 @@ export async function syncMarkers(): Promise<CheckinMarker[]> {
   setLastSyncTime(now)
   console.log('[cloudSync] syncMarkers: local=' + localMarkers.length + ' cloud=' + cloudData.length + ' merged=' + result.length)
   return result
+}
+
+// ===== Historical local checkin repair =====
+
+export function findRepairableCheckins(localList: CheckinMarker[], cloudList: CheckinMarker[], uid: string): number[] {
+  const ids: number[] = []
+  localList.forEach((localMarker: CheckinMarker): void => {
+    if (localMarker.checked == false) return
+    const cloudMarker = cloudList.find((item: CheckinMarker): boolean => item.id == localMarker.id)
+    if (cloudMarker == null) return
+    const checkedBy = cloudMarker.checkedBy
+    const exists = checkedBy != null && checkedBy.some((entry: CheckinEntry): boolean => entry.userId == uid)
+    if (!exists) ids.push(localMarker.id)
+  })
+  return ids
+}
+
+export async function repairMissingCheckins(uid: string): Promise<number> {
+  const cloudList = await syncMarkers()
+  const localList = loadMarkers()
+  const repairIds = findRepairableCheckins(localList, cloudList, uid)
+  if (repairIds.length == 0) return 0
+
+  const markerApi = uniCloud.importObject('marker-center')
+  for (let i = 0; i < repairIds.length; i++) {
+    const marker = localList.find((item: CheckinMarker): boolean => item.id == repairIds[i])
+    if (marker == null) continue
+    const payload = JSON.parse('{}') as UTSJSONObject
+    payload["markerId"] = marker.id
+    payload["checkedAt"] = marker.checkedAt
+    payload["photoCloudURL"] = marker.photoCloudURL
+    payload["note"] = marker.note
+    await markerApi.repairCheckin(payload)
+  }
+
+  await syncMarkers()
+  return repairIds.length
 }
 
 // ===== Pull user tasks from cloud =====

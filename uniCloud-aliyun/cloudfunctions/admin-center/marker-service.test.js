@@ -10,7 +10,8 @@ const {
   sanitizeMarkerUpdate,
   flattenCheckinRecords,
   deriveUserStatsFromMarkers,
-  normalizeAdminUsers
+  normalizeAdminUsers,
+  buildSyncDiagnostics
 } = require('./marker-service')
 
 test('default seed markers match the eight local marker ids', () => {
@@ -130,6 +131,42 @@ test('flattenCheckinRecords returns records sorted by newest checkin first', () 
   assert.equal(records[0].markerId, 1)
   assert.equal(records[0].markerTitle, '北京故宫')
   assert.equal(records[1].photoCloudURL, 'b.jpg')
+})
+
+test('flattenCheckinRecords preserves repaired checkin flags', () => {
+  const records = flattenCheckinRecords([
+    {
+      _id: 'm1',
+      id: 1,
+      title: '北京故宫',
+      latitude: 39.9163,
+      longitude: 116.3972,
+      checkedBy: [
+        { userId: 'uid-1', checkedAt: 100, repaired: true }
+      ]
+    }
+  ])
+
+  assert.equal(records.length, 1)
+  assert.equal(records[0].repaired, true)
+})
+
+test('buildSyncDiagnostics summarizes cloud marker, checkin, and user counts', () => {
+  const diagnostics = buildSyncDiagnostics([
+    { id: 1, checkedBy: [{ userId: 'uid-1' }, { userId: 'uid-2' }] },
+    { id: 2, checkedBy: [] },
+    { id: 3 }
+  ], [
+    { _id: 'uid-1' },
+    { _id: 'uid-2' }
+  ])
+
+  assert.deepEqual(diagnostics, {
+    markerTotal: 3,
+    markerWithCheckins: 1,
+    checkinTotal: 2,
+    userTotal: 2
+  })
 })
 
 test('normalizeAdminUsers reads accounts from uni-id-users and merges profile stats', () => {

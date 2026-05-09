@@ -37,8 +37,8 @@
 
     <view class="marker-panel" v-if="activeMarker != null">
       <view class="panel-header">
-        <view class="status-pill" :class="activeMarker!!.checked ? 'pill-done' : 'pill-pending'">
-          <text class="status-pill-text">{{ activeMarker!!.checked ? '已打卡' : '未打卡' }}</text>
+        <view class="status-pill" :class="currentUserChecked ? 'pill-done' : 'pill-pending'">
+          <text class="status-pill-text">{{ currentUserChecked ? '已打卡' : '未打卡' }}</text>
         </view>
         <text class="panel-title">{{ activeMarker!!.title }}</text>
         <view class="panel-close" @click="closeSheet">
@@ -48,7 +48,7 @@
 
       <view class="panel-meta">
         <text class="meta-coord">{{ activeMarker!!.latitude.toFixed(4) }}, {{ activeMarker!!.longitude.toFixed(4) }}</text>
-        <text class="meta-distance" v-if="activeMarker!!.checked == false && dist != null">距离 {{ (dist as number).toFixed(0) }}m</text>
+        <text class="meta-distance" v-if="currentUserChecked == false && dist != null">距离 {{ (dist as number).toFixed(0) }}m</text>
       </view>
 
       <view class="panel-stats">
@@ -80,10 +80,10 @@
       </view>
 
       <view class="panel-actions">
-        <view class="panel-btn panel-btn-primary" v-if="activeMarker!!.checked == false && canCheckIn" @click="doCheckin">
+        <view class="panel-btn panel-btn-primary" v-if="canShowCheckinButton" @click="doCheckin">
           <text class="panel-btn-text light">打卡</text>
         </view>
-        <view class="panel-btn panel-btn-ghost" v-if="activeMarker!!.checked == false && canCheckIn == false">
+        <view class="panel-btn panel-btn-ghost" v-if="currentUserChecked == false && canCheckIn == false">
           <text class="panel-btn-text muted">未进入范围</text>
         </view>
         <view class="panel-btn panel-btn-danger" v-if="isOwner" @click="doDelete">
@@ -111,13 +111,14 @@
 
 <script setup lang="uts">
 import { computed } from 'vue'
-import { deleteMarker, doneCount, findById, loadFromStorage as loadMarkers, markers, syncFromCloud, totalCount } from '@/stores/useMarkerStore'
+import { deleteMarker, doneCount, findById, isCheckedByUser, loadFromStorage as loadMarkers, markers, syncFromCloud, totalCount } from '@/stores/useMarkerStore'
 import { accuracyLevel, accuracyText, currentLocation, distanceTo, getEffectiveCheckinRadius, pollLocationOnce, startTracking, stopTracking } from '@/stores/useLocationStore'
 import { activeMarker, consumeFocus, latitude, longitude, mapCenterLat, mapCenterLng, moveToLocation, onRegionChangeEnd, scale, setActiveMarker, zoomIn, zoomOut } from '@/stores/useMapStore'
 import { loadFromStorage as loadTasks } from '@/stores/useTaskStore'
 import { state as userState, clearUserInfo } from '@/user/index.uts'
 import type { CheckinMarker, CheckinEntry } from '@/types/marker'
 import { formatDateTime } from '@/utils/format'
+import { repairMissingCheckins } from '@/utils/cloudSync'
 
 const LOCATE_SCALE: number = 17
 let hasCenteredOnUser: boolean = false
@@ -197,6 +198,17 @@ const canCheckIn = computed((): boolean => {
   return dist.value != null && dist.value <= effectiveRadius.value
 })
 
+const currentUserChecked = computed((): boolean => {
+  const marker = activeMarker.value
+  const user = userState.userInfo
+  if (marker == null || user == null) return false
+  return isCheckedByUser(marker, user.userId)
+})
+
+const canShowCheckinButton = computed((): boolean => {
+  return currentUserChecked.value == false && canCheckIn.value
+})
+
 // 详情面板：自己/他人打卡 + 创建者判定
 const myCheckin = computed((): CheckinEntry | null => {
   const m = activeMarker.value
@@ -236,8 +248,10 @@ const checkinCountText = computed((): string => {
   const m = activeMarker.value
   if (m == null) return ''
   const c = m.checkinCount
-  if (c == null || c === 0) return '还未有人打卡'
-  return '已被 ' + c + ' 人打卡'
+  const fallback = m.checkedBy != null ? m.checkedBy!!.length : 0
+  const count = c != null ? c : fallback
+  if (count === 0) return '还未有人打卡'
+  return '已被 ' + count.toString() + ' 人打卡'
 })
 
 // UTS 5.07 限制：模板里直接调用 import 进来的独立函数会报 "找不到名称 invoke"。
@@ -257,6 +271,20 @@ async function refreshCloudAndPanel(markerId: number): Promise<void> {
   } catch (e) {
     console.log('syncFromCloud failed', e)
   }
+}
+
+async function repairAndRefreshForUser(markerId: number): Promise<void> {
+  const user = userState.userInfo
+  if (user == null) {
+    await refreshCloudAndPanel(markerId)
+    return
+  }
+  try {
+    await repairMissingCheckins(user.userId)
+  } catch (e) {
+    console.log('repairMissingCheckins failed', e)
+  }
+  await refreshCloudAndPanel(markerId)
 }
 
 async function centerOnUserOnce(): Promise<void> {
@@ -279,12 +307,12 @@ onShow((): void => {
   if (target != null) {
     moveToLocation(target.latitude, target.longitude, 16)
     setActiveMarker(target)
-    refreshCloudAndPanel(target.id)
+    repairAndRefreshForUser(target.id)
     return
   }
   const marker = activeMarker.value
   const markerId = marker != null ? marker.id : 0
-  refreshCloudAndPanel(markerId)
+  repairAndRefreshForUser(markerId)
   centerOnUserOnce()
 })
 

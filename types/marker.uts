@@ -8,6 +8,7 @@ export type CheckinEntry = {
   checkedAt: number                // 打卡时间戳（毫秒）
   photoCloudURL: string | null    // 打卡照片云端 URL
   note: string | null              // 打卡备注
+  repaired?: boolean               // true 表示由历史本地记录补传
 }
 
 export type CheckinMarker = {
@@ -16,7 +17,7 @@ export type CheckinMarker = {
   title: string           // 打卡点名称
   latitude: number        // GCJ-02 纬度
   longitude: number       // GCJ-02 经度
-  checked: boolean        // 是否已打卡
+  checked: boolean        // 本地历史打卡状态；当前用户状态应优先由 checkedBy + uid 判断
   width: number           // 标记宽度（默认 36）
   height: number          // 标记高度（默认 36）
   iconPath: string        // 标记图标路径（本地静态资源）
@@ -26,7 +27,7 @@ export type CheckinMarker = {
   note: string | null         // 打卡备注（最多 200 字）
   createdAt: number       // 创建时间戳（毫秒）
   createdBy: string | null    // 创建者 userId（关联 uni-id 的 uid）
-  checkedBy: CheckinEntry[] | null  // 云端所有打卡记录（含他人）；本地老数据为 null
+  checkedBy: CheckinEntry[] | null  // 云端所有打卡记录（含他人）；当前用户需按 uid 匹配
   checkinCount: number | null       // 总打卡人次（云端聚合）；本地老数据为 null
 }
 

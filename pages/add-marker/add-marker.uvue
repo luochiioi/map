@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="uts">
-import { ref, onShow } from 'vue'
+import { ref } from 'vue'
 import type { NewMarkerInput } from '@/types/marker'
 import { addMarker } from '@/stores/useMarkerStore'
 import { currentLocation, pollLocationOnce } from '@/stores/useLocationStore'
