@@ -302,8 +302,12 @@ export async function deleteCloudCheckin(markerId: number): Promise<boolean> {
   const rawData = res["data"]
   if (rawData == null) return true
   const data = rawData as UTSJSONObject
-  const deleted = data["deleted"] as boolean
-  return deleted
+  // PITFALLS §九 法则 8：data["deleted"] 是 nullable；直接 as boolean 在 null
+  // 上会触发 ClassCastException，被外层 catch 吞掉变成 "删除失败" toast，
+  // 误导用户。先判 null 再 as boolean，让"记录不存在"返回 false 而非抛错。
+  const rawDeleted = data["deleted"]
+  if (rawDeleted == null) return false
+  return rawDeleted as boolean
 }
 
 // ===== Pull user tasks from cloud =====

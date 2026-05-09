@@ -1008,3 +1008,93 @@ P3.3 第一版不回滚任务进度；如后续要撤销 `user_tasks/rewards`，
 ```
 
 前端列表保留缩略图，但审核大图必须通过独立按钮/弹窗打开，避免把长 URL 或大图直接塞进每条记录卡片造成页面噪音。后续违规照片删除入口应接在该弹窗动作区，而不是复用公开 App 接口做后台管理写操作。
+
+### 规则 23：UTS 5.07 详情面板严禁纵向 scroll-view 内嵌横向 scroll-view
+
+P3.3 复测在 Android 真机上发现：详情面板已打卡时，`<scroll-view scroll-y>` 内部嵌一个 `<scroll-view scroll-x>` 来展示"他人足迹"，会出现纵向滑动手势完全失效，并且只能看到我的打卡卡片，下面的他人足迹永远滚不出来。
+
+根因：
+
+- UTS 5.07 Android 原生 scroll-view 嵌套时，内层横向 scroll-view 会优先吃掉手势，纵向滑动事件无法冒泡到外层。
+- 没有显式 `direction` 时，编译器选择的方向与运行时实际方向有概率不一致（参规则 §10.4）。
+
+强制写法：
+
+```vue
+<scroll-view scroll-y direction="vertical" class="panel-body">
+  <view class="other-checkins" v-if="visibleOtherCheckinsWithPhoto.length > 0">
+    <text class="section-label">{{ otherFootprintLabel }}</text>
+    <view class="other-grid">
+      <view v-for="e in visibleOtherCheckinsWithPhoto" class="other-card">
+        ...
+      </view>
+    </view>
+  </view>
+</scroll-view>
+```
+
+`.other-grid` 用 `display: flex; flex-direction: row; flex-wrap: wrap;`，让他人足迹照片纵向自然排列在外层纵向 scroll-view 里。如果一定要横滑展示，应放在外层 scroll-view 之外，独立分区。
+
+### 规则 24：UTS as Boolean / as String / as Number 在 nullable 上不安全
+
+P3.3 复测发现：App 删除打卡几乎总是显示"删除失败，请稍后重试"。复盘代码：
+
+```ts
+const data = rawData as UTSJSONObject
+const deleted = data["deleted"] as boolean   // ← 这里
+return deleted
+```
+
+`data["deleted"]` 是 `Any | null`。`as boolean` 在 null 上抛 ClassCastException，被外层 try/catch 兜成"删除失败"，UI 完全屏蔽了真实错误。
+
+正确写法：先判 null 再 as：
+
+```ts
+const rawDeleted = data["deleted"]
+if (rawDeleted == null) return false
+return rawDeleted as boolean
+```
+
+同时，UI catch 应把云端 `errMsg` 透传到 toast，而不是统一回退到本地兜底文案——否则"请先登录 / 距离过远 / 该用户没有打卡记录"等业务错误全部被当成"网络异常"。
+
+```ts
+} catch (e) {
+  const err = e as Error
+  const msg = err.message
+  uni.showToast({ title: msg.length > 0 ? msg : '删除失败，请稍后重试', icon: 'none' })
+}
+```
+
+### 规则 25：后台违规删除入口必须走 admin-center，不能复用 marker-center 的当前用户接口
+
+`marker-center.deleteCheckin()` 在 P3.3 设计里只信任 `this.auth.uid`，只删自己的记录——这是给 App 用户用的安全闸门。后台审核要"删除别人的记录"，必须通过 `admin-center._before()` 的管理员校验门禁后，由 `admin-center.deleteCheckinRecord()` 执行。
+
+前端用 `(userId, checkedAt)` 这对自然主键是因为 `checkedBy[]` 嵌套数组里的 entry 没有独立 doc `_id`：
+
+```js
+function createDeleteCheckinRecordPlan(marker, target) {
+  // 只删第一条 (userId, checkedAt) 完全匹配的 entry，幂等
+}
+```
+
+云对象层一定要：
+
+- 校验 admin 身份在 `_before`，不放行任何匿名 / 普通用户 token
+- 不允许客户端传 `checkedBy[]` 整体覆盖；只接受定位字段
+- 第一版不回滚 `user_tasks`/`rewards`，与 P3.3 规则 21 一致
+- 后续 P3.4 接入物理删除照片与审计日志时，物理删除失败不回滚数据库删除，仅记 `purgeError` 字段
+
+### 11.6 P3.3 复测验证命令
+
+```bash
+node --test uniCloud-aliyun/cloudfunctions/admin-center/marker-service.test.js
+node --test uniCloud-aliyun/cloudfunctions/marker-center/repair-service.test.js
+node --test uni-admin/pages/checkins/checkin-groups.test.js
+node --check uniCloud-aliyun/cloudfunctions/admin-center/index.obj.js
+node --check uniCloud-aliyun/cloudfunctions/admin-center/marker-service.js
+node --check uniCloud-aliyun/cloudfunctions/marker-center/index.obj.js
+node --check uniCloud-aliyun/cloudfunctions/marker-center/repair-service.js
+node --check uniCloud-aliyun/cloudfunctions/user-center/index.obj.js
+```
+
+下一轮 P3.4 计划入口：`docs/superpowers/plans/2026-05-09-p3.4-record-cleanup-and-personal-history.md`。

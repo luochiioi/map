@@ -33,7 +33,7 @@
         </view>
       </view>
 
-      <scroll-view scroll-y class="panel-body" :show-scrollbar="false">
+      <scroll-view scroll-y direction="vertical" class="panel-body" :show-scrollbar="false">
         <view class="panel-meta">
           <text class="meta-coord">{{ activeMarker!!.latitude.toFixed(4) }}, {{ activeMarker!!.longitude.toFixed(4) }}</text>
           <text class="meta-distance" v-if="currentUserChecked == false && dist != null">距离 {{ (dist as number).toFixed(0) }}m</text>
@@ -57,14 +57,12 @@
 
         <view class="other-checkins" v-if="visibleOtherCheckinsWithPhoto.length > 0">
           <text class="section-label">{{ otherFootprintLabel }}</text>
-          <scroll-view scroll-x class="other-scroll" :show-scrollbar="false">
-            <view class="other-list">
-              <view v-for="e in visibleOtherCheckinsWithPhoto" :key="e.userId + '_' + e.checkedAt" class="other-card">
-                <image :src="e.photoCloudURL!!" class="other-photo" mode="aspectFill" />
-                <text class="other-time">{{ fmtTime(e.checkedAt) }}</text>
-              </view>
+          <view class="other-grid">
+            <view v-for="e in visibleOtherCheckinsWithPhoto" :key="e.userId + '_' + e.checkedAt" class="other-card">
+              <image :src="e.photoCloudURL!!" class="other-photo" mode="aspectFill" />
+              <text class="other-time">{{ fmtTime(e.checkedAt) }}</text>
             </view>
-          </scroll-view>
+          </view>
         </view>
       </scroll-view>
 
@@ -438,13 +436,24 @@ async function doDeleteMarker(markerId: number): Promise<void> {
 }
 
 async function doDeleteCheckin(markerId: number): Promise<void> {
+  // 删除前先把本地 userInfo.userId 校正为 uni-id 真实 _id；否则旧账号
+  // 用业务编号（如 000_004）的本地 marker 永远比不上云端 checkedBy[].userId，
+  // 详情面板看似已打卡但 deleteCheckin 服务端找不到对应记录。
+  await refreshUserIdFromAuth()
   try {
-    await deleteCloudCheckin(markerId)
+    const deleted = await deleteCloudCheckin(markerId)
     await refreshCloudAndPanel(markerId)
-    uni.showToast({ title: '已删除打卡', icon: 'none' })
+    if (deleted) {
+      uni.showToast({ title: '已删除打卡', icon: 'none' })
+    } else {
+      uni.showToast({ title: '云端未找到你的打卡记录', icon: 'none' })
+    }
   } catch (e) {
     console.log('deleteCloudCheckin failed', e)
-    uni.showToast({ title: '删除失败，请稍后重试', icon: 'none' })
+    const err = e as Error
+    const msg = err.message
+    const fallback = '删除失败，请稍后重试'
+    uni.showToast({ title: msg.length > 0 ? msg : fallback, icon: 'none' })
   }
 }
 
@@ -635,24 +644,21 @@ function doDelete(): void {
 .other-checkins {
   margin-top: 24rpx;
 }
-.other-scroll {
-  width: 100%;
-}
-.other-list {
+.other-grid {
   display: flex;
   flex-direction: row;
-  padding-bottom: 4rpx;
+  flex-wrap: wrap;
 }
 .other-card {
-  width: 200rpx;
+  width: 210rpx;
   margin-right: 16rpx;
+  margin-bottom: 16rpx;
   display: flex;
   flex-direction: column;
 }
-.other-card:last-child { margin-right: 0; }
 .other-photo {
-  width: 200rpx;
-  height: 200rpx;
+  width: 210rpx;
+  height: 210rpx;
   border-radius: 16rpx;
   background-color: #e8ece8;
 }

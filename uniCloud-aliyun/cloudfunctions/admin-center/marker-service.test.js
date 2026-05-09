@@ -8,8 +8,10 @@ const {
   buildSeedTask,
   sanitizeMarkerCreate,
   sanitizeMarkerUpdate,
+  buildUserLookup,
   flattenCheckinRecords,
   groupCheckinRecordsByMarker,
+  createDeleteCheckinRecordPlan,
   deriveUserStatsFromMarkers,
   normalizeAdminUsers,
   buildSyncDiagnostics
@@ -104,6 +106,10 @@ test('sanitizeMarkerUpdate ignores protected fields', () => {
 })
 
 test('flattenCheckinRecords returns records sorted by newest checkin first', () => {
+  const userLookup = buildUserLookup([
+    { _id: 'u1', username: 'alice', nickname: '阿丽' },
+    { _id: 'u2', username: 'bob' }
+  ])
   const records = flattenCheckinRecords([
     {
       _id: 'm1',
@@ -126,12 +132,14 @@ test('flattenCheckinRecords returns records sorted by newest checkin first', () 
         { userId: 'u3', checkedAt: 200, photoCloudURL: 'b.jpg', note: '中' }
       ]
     }
-  ])
+  ], userLookup)
 
   assert.deepEqual(records.map(item => item.userId), ['u2', 'u3', 'u1'])
   assert.equal(records[0].markerId, 1)
   assert.equal(records[0].markerTitle, '北京故宫')
+  assert.equal(records[0].userName, 'bob')
   assert.equal(records[1].photoCloudURL, 'b.jpg')
+  assert.equal(records[2].userName, '阿丽')
 })
 
 test('flattenCheckinRecords preserves repaired checkin flags', () => {
@@ -153,6 +161,10 @@ test('flattenCheckinRecords preserves repaired checkin flags', () => {
 })
 
 test('groupCheckinRecordsByMarker returns one group per marker with nested records', () => {
+  const userLookup = buildUserLookup([
+    { _id: 'u1', username: 'alice' },
+    { _id: 'u2', nickname: '旅行者 B' }
+  ])
   const groups = groupCheckinRecordsByMarker([
     {
       _id: 'm1',
@@ -177,13 +189,57 @@ test('groupCheckinRecordsByMarker returns one group per marker with nested recor
         { userId: 'u3', checkedAt: 200, photoCloudURL: 'b.jpg', note: '中', repaired: true }
       ]
     }
-  ])
+  ], userLookup)
 
   assert.equal(groups.length, 2)
   assert.equal(groups[0].markerId, 1)
   assert.equal(groups[0].recordCount, 2)
   assert.deepEqual(groups[0].records.map(item => item.userId), ['u2', 'u1'])
+  assert.equal(groups[0].records[0].userName, '旅行者 B')
   assert.equal(groups[1].records[0].repaired, true)
+})
+
+test('createDeleteCheckinRecordPlan removes one exact checkin record and recalculates count', () => {
+  const marker = {
+    checked: true,
+    checkinCount: 3,
+    checkedBy: [
+      { userId: 'u1', checkedAt: 100 },
+      { userId: 'u2', checkedAt: 200 },
+      { userId: 'u1', checkedAt: 300 }
+    ]
+  }
+
+  assert.deepEqual(createDeleteCheckinRecordPlan(marker, { userId: 'u1', checkedAt: 100 }), {
+    shouldDelete: true,
+    removedCount: 1,
+    checked: true,
+    checkinCount: 2,
+    checkedBy: [
+      { userId: 'u2', checkedAt: 200 },
+      { userId: 'u1', checkedAt: 300 }
+    ]
+  })
+})
+
+test('createDeleteCheckinRecordPlan is idempotent for a missing record', () => {
+  const marker = {
+    checked: true,
+    checkinCount: 1,
+    checkedBy: [
+      { userId: 'u2', checkedAt: 200 }
+    ]
+  }
+
+  assert.deepEqual(createDeleteCheckinRecordPlan(marker, { userId: 'u1', checkedAt: 100 }), {
+    shouldDelete: false,
+    removedCount: 0,
+    checked: true,
+    checkinCount: 1,
+    checkedBy: [
+      { userId: 'u2', checkedAt: 200 }
+    ]
+  })
 })
 
 test('buildSyncDiagnostics summarizes cloud marker, checkin, and user counts', () => {

@@ -215,7 +215,30 @@ function sanitizeMarkerUpdate(data, now) {
   return updates
 }
 
-function flattenCheckinRecords(markers) {
+// 把 uni-id-users 表里的若干显示字段折叠成一张 userId -> { userName } 表，
+// 方便后台打卡记录页直接在每条 entry 上展示真实用户名而不是裸 _id。
+function buildUserLookup(uniUsers) {
+  const lookup = new Map()
+  ;(uniUsers || []).forEach(user => {
+    if (!user || !user._id) return
+    const key = String(user._id)
+    const nickname = String(user.nickname || '').trim()
+    const username = String(user.username || '').trim()
+    const userName = nickname || username || key
+    lookup.set(key, { userName, nickname, username })
+  })
+  return lookup
+}
+
+function resolveUserName(userId, userLookup) {
+  if (!userId) return ''
+  if (!userLookup || typeof userLookup.get !== 'function') return String(userId)
+  const found = userLookup.get(String(userId))
+  if (!found) return String(userId)
+  return found.userName || String(userId)
+}
+
+function flattenCheckinRecords(markers, userLookup) {
   const records = []
   ;(markers || []).forEach(marker => {
     ;(marker.checkedBy || []).forEach(entry => {
@@ -226,6 +249,7 @@ function flattenCheckinRecords(markers) {
         latitude: marker.latitude,
         longitude: marker.longitude,
         userId: entry.userId || '',
+        userName: resolveUserName(entry.userId, userLookup),
         checkedAt: entry.checkedAt || 0,
         photoCloudURL: entry.photoCloudURL || null,
         note: entry.note || null,
@@ -237,10 +261,10 @@ function flattenCheckinRecords(markers) {
   return records
 }
 
-function groupCheckinRecordsByMarker(markers) {
+function groupCheckinRecordsByMarker(markers, userLookup) {
   const groups = []
   ;(markers || []).forEach(marker => {
-    const records = flattenCheckinRecords([marker])
+    const records = flattenCheckinRecords([marker], userLookup)
     if (records.length === 0) return
     groups.push({
       markerDocId: marker._id || '',
@@ -256,6 +280,48 @@ function groupCheckinRecordsByMarker(markers) {
   })
   groups.sort((a, b) => (b.latestCheckedAt || 0) - (a.latestCheckedAt || 0))
   return groups
+}
+
+// 后台删除单条打卡记录：按 (userId, checkedAt) 精确匹配 checkedBy[] 中的一项。
+// 如果同一用户在同一 marker 有多条历史记录（理论上不应该，但防御性处理），
+// 只删第一条匹配；其余保留。shouldDelete: false 表示幂等：已不存在时无需再写库。
+function createDeleteCheckinRecordPlan(marker, target) {
+  const original = marker && Array.isArray(marker.checkedBy) ? marker.checkedBy : []
+  const targetUserId = target && target.userId != null ? String(target.userId) : ''
+  const targetCheckedAt = target && target.checkedAt != null ? Number(target.checkedAt) : null
+
+  let removed = false
+  const checkedBy = []
+  for (let i = 0; i < original.length; i++) {
+    const entry = original[i]
+    const entryUserId = entry && entry.userId != null ? String(entry.userId) : ''
+    const entryCheckedAt = entry && entry.checkedAt != null ? Number(entry.checkedAt) : null
+    const userMatch = targetUserId.length === 0 || entryUserId === targetUserId
+    const timeMatch = targetCheckedAt == null || entryCheckedAt === targetCheckedAt
+    if (!removed && userMatch && timeMatch) {
+      removed = true
+      continue
+    }
+    checkedBy.push(entry)
+  }
+
+  if (!removed) {
+    return {
+      shouldDelete: false,
+      removedCount: 0,
+      checked: original.length > 0,
+      checkinCount: original.length,
+      checkedBy: original
+    }
+  }
+
+  return {
+    shouldDelete: true,
+    removedCount: 1,
+    checked: checkedBy.length > 0,
+    checkinCount: checkedBy.length,
+    checkedBy
+  }
 }
 
 function buildSyncDiagnostics(markers, users) {
@@ -337,8 +403,10 @@ module.exports = {
   buildSeedTaskUpdate,
   sanitizeMarkerCreate,
   sanitizeMarkerUpdate,
+  buildUserLookup,
   flattenCheckinRecords,
   groupCheckinRecordsByMarker,
+  createDeleteCheckinRecordPlan,
   deriveUserStatsFromMarkers,
   normalizeAdminUsers,
   buildSyncDiagnostics

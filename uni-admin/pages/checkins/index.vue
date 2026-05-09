@@ -38,19 +38,24 @@
         </view>
       </view>
 
-      <view v-for="record in group.records" :key="record.markerDocId + '-' + record.userId + '-' + record.checkedAt" class="entry">
+      <view v-for="record in group.records" :key="recordKey(record)" class="entry">
         <image v-if="record.photoCloudURL" :src="record.photoCloudURL" class="entry-photo" mode="aspectFill" />
         <view v-else class="entry-photo entry-photo-empty">无图</view>
         <view class="entry-info">
-          <text class="entry-user">打卡人：{{ record.userId || '--' }}</text>
+          <text class="entry-user">打卡人：{{ record.userName || record.userId || '--' }}</text>
+          <text v-if="record.userName && record.userId && record.userName !== record.userId" class="entry-uid">UID：{{ record.userId }}</text>
           <text v-if="record.repaired" class="entry-repaired">历史补传</text>
           <text class="entry-time">打卡时间：{{ formatTime(record.checkedAt) }}</text>
-          <text v-if="record.photoCloudURL" class="entry-url">照片 URL：{{ record.photoCloudURL }}</text>
           <text v-if="record.note" class="entry-note">备注：{{ record.note }}</text>
           <text v-else class="entry-note muted">备注：--</text>
         </view>
-        <button v-if="record.photoCloudURL" class="btn-preview" @click="openPhotoPreview(record)">预览</button>
-        <button v-else class="btn-preview disabled" disabled>无图</button>
+        <view class="entry-actions">
+          <button v-if="record.photoCloudURL" class="btn-preview" @click="openPhotoPreview(record, group)">预览</button>
+          <button v-else class="btn-preview disabled" disabled>无图</button>
+          <button class="btn-delete" :disabled="deletingKey === recordKey(record)" @click="confirmDeleteRecord(record, group)">
+            {{ deletingKey === recordKey(record) ? '删除中…' : '违规删除' }}
+          </button>
+        </view>
       </view>
     </view>
 
@@ -63,13 +68,15 @@
         <view class="preview-header">
           <view>
             <text class="preview-title">照片审核预览</text>
-            <text class="preview-meta">{{ preview.userId }} · {{ formatTime(preview.checkedAt) }}</text>
+            <text class="preview-meta">{{ preview.userName || preview.userId }} · {{ formatTime(preview.checkedAt) }}</text>
           </view>
           <text class="preview-close" @click="closePhotoPreview">×</text>
         </view>
         <image :src="preview.url" class="preview-image" mode="aspectFit" />
         <view class="preview-actions">
-          <button class="btn-reserved" disabled>违规删除入口预留</button>
+          <button class="btn-delete preview-delete" :disabled="deletingKey === preview.key" @click="confirmDeleteFromPreview">
+            {{ deletingKey === preview.key ? '删除中…' : '违规删除该记录' }}
+          </button>
         </view>
       </view>
     </view>
@@ -92,15 +99,25 @@ const selectedMarkerTitle = ref('')
 const markerInfo = ref({})
 const total = ref(0)
 const totalRecordCount = ref(0)
+const deletingKey = ref('')
 const preview = ref({
   visible: false,
   url: '',
   userId: '',
-  checkedAt: 0
+  userName: '',
+  checkedAt: 0,
+  key: '',
+  markerDocId: '',
+  markerId: null,
+  markerTitle: ''
 })
 let offset = 0
 const limit = 20
 const api = uniCloud.importObject('admin-center')
+
+function recordKey(record) {
+  return [record.markerDocId || '', record.markerId || '', record.userId || '', record.checkedAt || 0].join('|')
+}
 
 onShow(() => {
   const storedMarkerId = uni.getStorageSync('admin_checkins_marker_id')
@@ -166,12 +183,17 @@ function formatTime(ts) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function openPhotoPreview(record) {
+function openPhotoPreview(record, group) {
   preview.value = {
     visible: true,
     url: record.photoCloudURL || '',
-    userId: record.userId || '--',
-    checkedAt: record.checkedAt || 0
+    userId: record.userId || '',
+    userName: record.userName || record.userId || '--',
+    checkedAt: record.checkedAt || 0,
+    key: recordKey(record),
+    markerDocId: record.markerDocId || (group && group.markerDocId) || '',
+    markerId: record.markerId != null ? record.markerId : (group ? group.markerId : null),
+    markerTitle: record.markerTitle || (group && group.markerTitle) || ''
   }
 }
 
@@ -180,7 +202,74 @@ function closePhotoPreview() {
     visible: false,
     url: '',
     userId: '',
-    checkedAt: 0
+    userName: '',
+    checkedAt: 0,
+    key: '',
+    markerDocId: '',
+    markerId: null,
+    markerTitle: ''
+  }
+}
+
+function confirmDeleteRecord(record, group) {
+  const userLabel = record.userName || record.userId || '该用户'
+  uni.showModal({
+    title: '确认删除',
+    content: `确认删除 ${userLabel} 在「${group.markerTitle || '该打卡点'}」的这条打卡记录？此操作不可撤销，且第一版不会回滚任务进度。`,
+    confirmText: '违规删除',
+    cancelText: '取消',
+    success: (res) => {
+      if (res.confirm) doDeleteRecord(record, group, false)
+    }
+  })
+}
+
+function confirmDeleteFromPreview() {
+  const snapshot = preview.value
+  const record = {
+    markerDocId: snapshot.markerDocId,
+    markerId: snapshot.markerId,
+    markerTitle: snapshot.markerTitle,
+    userId: snapshot.userId,
+    userName: snapshot.userName,
+    checkedAt: snapshot.checkedAt
+  }
+  const group = {
+    markerDocId: snapshot.markerDocId,
+    markerId: snapshot.markerId,
+    markerTitle: snapshot.markerTitle
+  }
+  uni.showModal({
+    title: '确认删除',
+    content: `确认删除 ${snapshot.userName || snapshot.userId || '该用户'} 在「${snapshot.markerTitle || '该打卡点'}」的这条打卡记录？此操作不可撤销。`,
+    confirmText: '违规删除',
+    cancelText: '取消',
+    success: (res) => {
+      if (res.confirm) doDeleteRecord(record, group, true)
+    }
+  })
+}
+
+async function doDeleteRecord(record, group, fromPreview) {
+  const key = recordKey(record)
+  deletingKey.value = key
+  try {
+    const res = await api.deleteCheckinRecord({
+      _id: record.markerDocId || (group && group.markerDocId) || undefined,
+      markerId: record.markerId != null ? record.markerId : (group && group.markerId),
+      userId: record.userId,
+      checkedAt: record.checkedAt
+    })
+    if (res.errCode !== 0) throw new Error(res.errMsg || '删除失败')
+    const data = res.data || {}
+    const msg = data.deleted ? '已删除该打卡记录' : '记录不存在或已被删除'
+    uni.showToast({ title: msg, icon: 'none' })
+    if (fromPreview) closePhotoPreview()
+    reload()
+  } catch (e) {
+    uni.showToast({ title: e.message || '删除失败', icon: 'none' })
+  } finally {
+    deletingKey.value = ''
   }
 }
 </script>
@@ -333,11 +422,18 @@ function closePhotoPreview() {
 }
 
 .entry-user { font-size: 26rpx; color: #333; }
+.entry-uid { font-size: 22rpx; color: #aaa; font-family: monospace; }
 .entry-repaired { font-size: 22rpx; color: #9a6b00; background: #fff7d6; border-radius: 999rpx; padding: 4rpx 12rpx; align-self: flex-start; }
 .entry-time { font-size: 22rpx; color: #aaa; }
-.entry-url { font-size: 22rpx; color: #1677ff; word-break: break-all; }
 .entry-note { font-size: 24rpx; color: #666; margin-top: 4rpx; }
 .entry-note.muted { color: #aaa; }
+
+.entry-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  flex-shrink: 0;
+}
 
 .btn-preview {
   margin: 0;
@@ -354,6 +450,24 @@ function closePhotoPreview() {
 .btn-preview.disabled {
   background: #eef2f3;
   color: #9aa4a8;
+}
+
+.btn-delete {
+  margin: 0;
+  padding: 0 18rpx;
+  height: 56rpx;
+  line-height: 56rpx;
+  background: #fff2f1;
+  color: #d93026;
+  border: 1rpx solid #ffd5d2;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+}
+
+.btn-delete[disabled] {
+  background: #f5f5f5;
+  color: #aaa;
+  border-color: #eee;
 }
 
 .preview-mask {
@@ -421,16 +535,11 @@ function closePhotoPreview() {
   margin-top: 16rpx;
 }
 
-.btn-reserved {
-  margin: 0;
-  padding: 0 20rpx;
-  height: 58rpx;
-  line-height: 58rpx;
-  background: #fff2f1;
-  color: #d93026;
-  border-radius: 8rpx;
-  border: none;
-  font-size: 22rpx;
+.preview-delete {
+  padding: 0 24rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  font-size: 24rpx;
 }
 
 .empty { text-align: center; color: #999; line-height: 1.7; padding: 80rpx 20rpx; font-size: 26rpx; }

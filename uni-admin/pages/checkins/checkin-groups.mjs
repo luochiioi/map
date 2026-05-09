@@ -1,11 +1,13 @@
 function normalizeRecord(record) {
+  const userId = record.userId || ''
   return {
     markerDocId: record.markerDocId || '',
     markerId: record.markerId,
     markerTitle: record.markerTitle || '',
     latitude: record.latitude,
     longitude: record.longitude,
-    userId: record.userId || '',
+    userId,
+    userName: record.userName || userId,
     checkedAt: record.checkedAt || 0,
     photoCloudURL: record.photoCloudURL || null,
     note: record.note || null,

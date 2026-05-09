@@ -3295,3 +3295,58 @@ git diff --check
 2. 账号 A 和 B 对同一景点打卡，确认后台该点分组下有 2 条记录。
 3. 账号 A 在 App 首页详情面板点击 `删除打卡`，确认 A 的面板变回 `未打卡`，全局人数减 1，B 的记录和照片仍保留。
 4. 打开 uni-admin 打卡记录页，确认同一 marker 分组记录数、照片预览弹窗和 App 侧人数一致。
+
+---
+
+## 2026-05-09 P3.3 复测修复
+
+复测发现的 6 个问题（与本轮 commit 一同修复）：
+
+1. 详情面板已打卡后看不到"他人足迹"——根因是 `<scroll-view scroll-y>` 内嵌一层 `<scroll-view scroll-x>`，UTS 5.07 真机会被横滑吞掉手势（参 PITFALLS §10.4）。改成单层纵向 `scroll-view direction="vertical"` + 他人足迹 flex-wrap 网格，所有他人照片都能纵向滑动展示，最多 12 张缩略图。
+2. App 点击"删除打卡"提示"删除失败，请稍后重试"——根因是 `data["deleted"] as boolean` 在 nullable 上 ClassCastException 被外层 catch 吞掉。修复：先判 null 再 as；同时 toast 透传云端真实 `errMsg`。删除前增加 `refreshUserIdFromAuth()` 防止本地 userId 与云端 uid 不一致。
+3. 后台只能删整个打卡点，不能删单条打卡记录——新增 `admin-center.deleteCheckinRecord({ markerId|_id, userId, checkedAt })`，按 `(userId, checkedAt)` 精确匹配 `checkedBy[]` 中一条。helper `createDeleteCheckinRecordPlan()` 在 `marker-service.js`，已加单测覆盖"匹配删除"与"幂等不存在"两路径。
+4. 后台记录 entry 不显示打卡人用户名——`admin-center.getCheckins / getMarkerCheckins` 现在并行查 `uni-id-users.field({_id, username, nickname})`，由新 helper `buildUserLookup()` 折成 userId → userName 表，传给 `flattenCheckinRecords / groupCheckinRecordsByMarker`，每条 record 输出 `userName`（nickname → username → uid 兜底）。
+5. 每条记录里冗长的 `照片 URL：…` 文案删除——前端 `entry-url` 删除，改用 `entry-uid` 在 nickname 与 _id 不同时小字展示 UID 便于支持。
+6. "审核删除入口预留"按钮变成可工作的违规删除——卡片内每行多一个红色 `违规删除` 按钮，大图预览弹窗也接通同一删除接口；删除前 `uni.showModal` 二次确认，删除完成后 `reload()` 刷新分组与统计。删除按钮在请求期间禁用并显示"删除中…"。
+
+本轮自动化校验（全绿）：
+
+```bash
+node --test uniCloud-aliyun/cloudfunctions/admin-center/marker-service.test.js
+node --test uniCloud-aliyun/cloudfunctions/marker-center/repair-service.test.js
+node --test uni-admin/pages/checkins/checkin-groups.test.js
+node --check uniCloud-aliyun/cloudfunctions/admin-center/index.obj.js
+node --check uniCloud-aliyun/cloudfunctions/admin-center/marker-service.js
+node --check uniCloud-aliyun/cloudfunctions/marker-center/index.obj.js
+node --check uniCloud-aliyun/cloudfunctions/marker-center/repair-service.js
+node --check uniCloud-aliyun/cloudfunctions/user-center/index.obj.js
+```
+
+真机/服务空间验收仍需 HBuilderX 完成：
+
+1. 上传 `admin-center` 与 `marker-center`（包含 repair-service.js 与更新后的 marker-service.js）。
+2. 详情面板：已打卡用户能纵向滑动看到全部他人足迹缩略图。
+3. App 删除：点 `删除打卡`，toast 与云端 `errMsg` 一致；删除成功后全局人数 -1，B 的记录仍保留。
+4. 后台违规删除：对一条非自己的记录点 `违规删除` → 二次确认后该 marker 分组少一条，人数 -1，App 端再刷新也看不到。
+5. 大图预览弹窗的"违规删除该记录"按钮等价行为，删除完成后弹窗自动关闭。
+
+---
+
+## 2026-05-09 P3.4 下一轮计划入口：违规照片清理与个人打卡历史
+
+下一轮正式迭代目标为 **P3.4：Record Cleanup & Personal History**，计划文件位于：
+
+`docs/superpowers/plans/2026-05-09-p3.4-record-cleanup-and-personal-history.md`
+
+P3.4 锁定的范围：
+
+1. **云存储物理清理**：新增 `photo-center.deletePhoto(cloudURL)`，admin 违规删除时可选触发；用户自删默认仍只删数组项，需要二次确认才物理删除。
+2. **审计日志**：新增 `tourism_audit_logs` 集合，admin 违规删除与用户自删都追加一条；后台新增审计页可按 type 过滤分页。
+3. **App 我的打卡页**：新增 `pages/my-checkins/my-checkins.uvue`，通过 `marker-center.getMyCheckins()`（仅当前 uid）拉自己的全部记录，照片网格 + 时间排序 + 点击跳回地图聚焦。
+4. 出 P3.4 之外的事（明确不做）：路线/剧情、撤销机制、任务进度回滚、推送通知 —— 留 P4 或独立迭代。
+
+P3.4 验收重点：
+
+- 真机：admin 违规删除带 purgePhoto 后，该 cloudURL 在云存储控制台不再可访问。
+- 后台审计页能列两种类型并显示 actor/target uid、marker、photoCloudURL（已物理删除则标 cloud-deleted）。
+- App 我的打卡页能纵向滑动，点击跳回地图，删除后人数与详情面板同步刷新。

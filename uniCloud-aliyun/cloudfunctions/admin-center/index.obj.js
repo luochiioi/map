@@ -9,8 +9,10 @@ const {
   buildSeedTaskUpdate,
   sanitizeMarkerCreate,
   sanitizeMarkerUpdate,
+  buildUserLookup,
   flattenCheckinRecords,
   groupCheckinRecordsByMarker,
+  createDeleteCheckinRecordPlan,
   deriveUserStatsFromMarkers,
   normalizeAdminUsers,
   buildSyncDiagnostics
@@ -158,12 +160,16 @@ module.exports = {
         options: 'i'
       })
     }
-    const markerRes = await colMarkers
-      .where(where)
-      .field({ id: true, title: true, checkedBy: true, checkinCount: true, latitude: true, longitude: true })
-      .orderBy('updatedAt', 'desc')
-      .get()
-    const groups = groupCheckinRecordsByMarker(markerRes.data)
+    const [markerRes, userRes] = await Promise.all([
+      colMarkers
+        .where(where)
+        .field({ id: true, title: true, checkedBy: true, checkinCount: true, latitude: true, longitude: true })
+        .orderBy('updatedAt', 'desc')
+        .get(),
+      colUsers.field({ _id: true, username: true, nickname: true }).get()
+    ])
+    const userLookup = buildUserLookup(userRes.data)
+    const groups = groupCheckinRecordsByMarker(markerRes.data, userLookup)
     const totalRecords = groups.reduce((sum, item) => sum + item.recordCount, 0)
     return ok({
       list: groups.slice(offset, offset + limit),
@@ -189,8 +195,10 @@ module.exports = {
     if (!markerRes.data.length) return fail('打卡点不存在')
 
     const marker = markerRes.data[0]
-    const records = flattenCheckinRecords([marker])
-    const groups = groupCheckinRecordsByMarker([marker])
+    const userRes = await colUsers.field({ _id: true, username: true, nickname: true }).get()
+    const userLookup = buildUserLookup(userRes.data)
+    const records = flattenCheckinRecords([marker], userLookup)
+    const groups = groupCheckinRecordsByMarker([marker], userLookup)
     return ok({
       marker: {
         _id: marker._id,
@@ -208,6 +216,53 @@ module.exports = {
       offset,
       limit
     })
+  },
+
+  // 后台管理员删除单条打卡记录。前端要传 markerId 或 _id，外加要删的 userId
+  // 与 checkedAt（毫秒时间戳）；服务端只信入参作为定位条件，不允许传整个
+  // checkedBy[] 覆盖。第一版只动 tourism_markers，不回滚 user_tasks/rewards。
+  async deleteCheckinRecord(data) {
+    const payload = data || {}
+    const targetUserId = String(payload.userId || '').trim()
+    if (targetUserId.length === 0) return fail('缺少打卡人 userId')
+    const targetCheckedAt = payload.checkedAt != null ? Number(payload.checkedAt) : null
+    if (targetCheckedAt == null || !Number.isFinite(targetCheckedAt)) {
+      return fail('缺少 checkedAt 时间戳')
+    }
+
+    const markerDocId = payload._id
+    const markerId = payload.markerId
+    let markerRes
+    if (markerDocId) {
+      markerRes = await colMarkers.doc(markerDocId).get()
+    } else if (markerId != null) {
+      markerRes = await colMarkers.where({ id: Number(markerId) }).limit(1).get()
+    } else {
+      return fail('缺少打卡点 ID')
+    }
+    if (!markerRes.data.length) return fail('打卡点不存在')
+    const marker = markerRes.data[0]
+
+    const plan = createDeleteCheckinRecordPlan(marker, {
+      userId: targetUserId,
+      checkedAt: targetCheckedAt
+    })
+    if (!plan.shouldDelete) {
+      return ok({ deleted: false, removedCount: 0, checkinCount: plan.checkinCount }, '记录不存在')
+    }
+
+    await colMarkers.doc(marker._id).update({
+      checked: plan.checked,
+      checkinCount: plan.checkinCount,
+      checkedBy: plan.checkedBy,
+      updatedAt: Date.now()
+    })
+
+    return ok({
+      deleted: true,
+      removedCount: plan.removedCount,
+      checkinCount: plan.checkinCount
+    }, '删除成功')
   },
 
   async createMarker(data) {
