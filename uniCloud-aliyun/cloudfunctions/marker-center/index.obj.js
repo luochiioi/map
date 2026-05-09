@@ -2,7 +2,7 @@ const db = uniCloud.database()
 const col = db.collection('tourism_markers')
 const colTasks = db.collection('user_tasks')
 const colRewards = db.collection('rewards')
-const authUtil = require('../common/auth-util')
+const authUtil = require('auth-util')
 
 module.exports = {
   _before: async function() {

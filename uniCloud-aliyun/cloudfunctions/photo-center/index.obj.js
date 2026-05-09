@@ -1,4 +1,4 @@
-const authUtil = require('../common/auth-util')
+const authUtil = require('auth-util')
 
 module.exports = {
   _before: async function() {

@@ -1,5 +1,5 @@
 const db = uniCloud.database()
-const authUtil = require('../common/auth-util')
+const authUtil = require('auth-util')
 const {
   DEFAULT_SEED_MARKERS,
   buildSeedMarker,
