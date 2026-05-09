@@ -66,7 +66,8 @@ module.exports = {
         data: {
           token: tokenResult.token,
           tokenExpired: tokenResult.tokenExpired,
-          userId: resUserInfo.username,
+          userId: resUserInfo._id,
+          accountId: resUserInfo.username,
           userName: resUserInfo.nickname
         }
       }
@@ -145,10 +146,17 @@ module.exports = {
     const uniIdIns = uniId.createInstance({ context: this })
     const payload = await uniIdIns.checkToken(token)
     if (payload.code === 0) {
+      const userRes = await db.collection('uni-id-users').doc(payload.uid).get()
+      const userInfo = userRes.data.length > 0 ? userRes.data[0] : null
       return {
         errCode: 0,
         errMsg: 'Token 有效',
-        data: { uid: payload.uid }
+        data: {
+          uid: payload.uid,
+          userId: payload.uid,
+          accountId: userInfo != null ? userInfo.username : '',
+          userName: userInfo != null ? userInfo.nickname : payload.uid
+        }
       }
     }
     return { errCode: -1, errMsg: 'Token 已过期' }

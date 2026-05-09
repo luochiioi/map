@@ -50,6 +50,15 @@ export function setUserInfo(data: UserInfo, token: string, tokenExpired: number)
   uni.setStorageSync('uni_id_token_expired', tokenExpired)
 }
 
+export function refreshUserInfo(data: UserInfo): void {
+  const safeData: UserInfo = {
+    userId: data.userId,
+    userName: data.userName.length > 0 ? data.userName : data.userId
+  }
+  state.userInfo = safeData
+  uni.setStorageSync('userInfo', safeData)
+}
+
 export function clearUserInfo() {
   state.userInfo = null
   uni.removeStorageSync('userInfo')

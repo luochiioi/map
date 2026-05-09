@@ -864,3 +864,53 @@ node --check uniCloud-aliyun/cloudfunctions/marker-center/index.obj.js
 2. 再做客户端补传接口：优先新增 `marker-center.repairCheckin()`，权限与幂等逻辑由服务端兜住。
 3. 然后改 `utils/cloudSync.uts`：拉云端 markers → 找本地已打卡但云端缺当前用户记录的点 → 入队/补传 → 重拉云端。
 4. 最后做真机双设备验收：A 打卡、B 拉取、后台刷新，三端数字一致后再进入照片墙/回顾页。
+
+---
+
+## 2026-05-09 P3.1 新增规则：打卡同步链路
+
+### 规则 13：云对象内部业务逻辑不要依赖 `this._method()`
+
+`marker-center.checkin()` 曾在写入 `tourism_markers.checkedBy[]` 后调用 `this._checkTasks(marker)`。在 uniCloud 云对象本地/云端运行环境中，内部方法不一定能按普通 JS 对象方法保持可调用绑定，真机表现为打卡已成功但随后弹出 `this._checkTasks is not a function`。
+
+推荐写法是把可复用业务逻辑抽成模块级 helper，并显式传入 `uid`：
+
+```js
+const completedTasks = await checkTasksForMarker(this.auth.uid, marker)
+
+async function checkTasksForMarker(userId, marker) {
+  // 只依赖入参，不依赖 this.auth
+}
+```
+
+### 规则 14：客户端用户 ID 必须与云端 `this.auth.uid` 保持一致
+
+云端写入 `checkedBy[].userId`、`createdBy`、`user_tasks.userId` 时使用的是 uni-id token 解析出的 `_id`。App 端 `userInfo.userId` 不能再使用展示编号或业务编号，例如 `000_004`，否则会出现这些错位：
+
+- 地图详情面板无法识别“我的打卡”。
+- `otherCheckins` 误把自己的记录当成他人记录，或完全不显示。
+- `isOwner` 判断失败，自己创建的点不显示删除/创建者状态。
+
+`user-center.login()` 和 `user-center.checkToken()` 应返回 `resUserInfo._id` 作为 `userId`，业务编号可以额外放在 `accountId`，但不要参与权限和打卡匹配。
+
+### 规则 15：打卡完成后 UI 必须重新拉云端事实
+
+本地 `doCheckIn()` 只能保证当前设备即时反馈，不能代表云端 `checkedBy/checkinCount` 已经被所有端看到。拍照打卡页返回主地图后，应由首页 `onShow` 调用 `syncFromCloud()`，再用 `findById(markerId)` 刷新 `activeMarker`。
+
+不要把 checkin 页里刚构造的本地 marker 直接当成最终面板数据；它通常缺少云端追加的 `photoCloudURL`、`checkedAt`、`checkedBy[]` 和最新 `checkinCount`。
+
+### 规则 16：`.uvue` 页面生命周期仍使用 uni-app x 全局钩子
+
+App 端 `.uvue` 页面不要从 `vue` import `onShow/onHide`。5.07 Web/H5 调试会报 `does not provide an export named 'onShow'/'onHide'`，真机侧也容易出现编译/运行时差异。
+
+```ts
+// 不推荐
+import { ref, onShow, onHide } from 'vue'
+
+// 推荐
+import { ref } from 'vue'
+onShow((): void => {})
+onHide((): void => {})
+```
+
+`uni-admin` 是 Vue3/H5 后台项目，若页面需要生命周期，则从 `@dcloudio/uni-app` import；App `.uvue` 与后台 `.vue` 不要混用规则。

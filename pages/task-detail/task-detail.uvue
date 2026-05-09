@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="uts">
-import { ref, computed, onShow } from 'vue'
+import { ref, computed } from 'vue'
 // onLoad 在 uni-app x 中是全局页面生命周期钩子，无需 import
 import { findTaskById, loadFromStorage as loadTasks, pendingTaskDetailId, pendingTaskDetailSnapshot } from '@/stores/useTaskStore'
 import { findById, loadFromStorage as loadMarkers } from '@/stores/useMarkerStore'
@@ -83,7 +83,15 @@ onShow((): void => {
 })
 
 function goToMarker(): void {
-  const m = linkedMarker.value; if (m != null) { requestFocus(m); uni.navigateBack() }
+  const m = linkedMarker.value
+  if (m == null) return
+  requestFocus(m)
+  uni.redirectTo({
+    url: '/pages/index/index',
+    fail: (): void => {
+      uni.reLaunch({ url: '/pages/index/index' })
+    }
+  })
 }
 
 // UTS 5.07：模板不能直接调 import 的独立函数，wrap 进 setup 作用域

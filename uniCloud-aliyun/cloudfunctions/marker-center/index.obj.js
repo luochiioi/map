@@ -80,39 +80,13 @@ module.exports = {
       totalPhotos: photoCloudURL ? 1 : 0
     })
 
-    const completedTasks = await this._checkTasks(marker)
+    const completedTasks = await checkTasksForMarker(this.auth.uid, marker)
 
     return { errCode: 0, errMsg: '打卡成功', data: { completedTasks } }
   },
 
   async _checkTasks(marker) {
-    const completed = []
-    const tasksRes = await db.collection('tourism_tasks')
-      .where({ status: 'active' }).get()
-
-    for (const task of tasksRes.data) {
-      const existing = await colTasks.where({
-        userId: this.auth.uid,
-        taskId: task.id
-      }).get()
-      if (existing.data.length > 0 && existing.data[0].status === 'completed') continue
-
-      const match = task.targetMarkerId === marker.id || task.targetTitle === marker.title
-      if (!match) continue
-
-      const now = Date.now()
-      if (existing.data.length > 0) {
-        await colTasks.doc(existing.data[0]._id).update({ status: 'completed', completedAt: now })
-      } else {
-        await colTasks.add({ userId: this.auth.uid, taskId: task.id, status: 'completed', completedAt: now })
-      }
-      const rewardExists = await colRewards.where({ userId: this.auth.uid, taskId: task.id }).get()
-      if (!rewardExists.data.length) {
-        await colRewards.add({ userId: this.auth.uid, taskId: task.id, taskName: task.name, reward: task.reward, earnedAt: now })
-      }
-      completed.push({ taskId: task.id, taskName: task.name, reward: task.reward })
-    }
-    return completed
+    return checkTasksForMarker(this.auth.uid, marker)
   },
 
   async update(data) {
@@ -181,4 +155,34 @@ async function incrementUserStats(userId, increments) {
   if (increments.totalPhotos) updates.totalPhotos = db.command.inc(increments.totalPhotos)
   if (increments.totalCreated) updates.totalCreated = db.command.inc(increments.totalCreated)
   await colUserProfiles.doc(existing.data[0]._id).update(updates)
+}
+
+async function checkTasksForMarker(userId, marker) {
+  const completed = []
+  const tasksRes = await db.collection('tourism_tasks')
+    .where({ status: 'active' }).get()
+
+  for (const task of tasksRes.data) {
+    const existing = await colTasks.where({
+      userId,
+      taskId: task.id
+    }).get()
+    if (existing.data.length > 0 && existing.data[0].status === 'completed') continue
+
+    const match = task.targetMarkerId === marker.id || task.targetTitle === marker.title
+    if (!match) continue
+
+    const now = Date.now()
+    if (existing.data.length > 0) {
+      await colTasks.doc(existing.data[0]._id).update({ status: 'completed', completedAt: now })
+    } else {
+      await colTasks.add({ userId, taskId: task.id, status: 'completed', completedAt: now })
+    }
+    const rewardExists = await colRewards.where({ userId, taskId: task.id }).get()
+    if (!rewardExists.data.length) {
+      await colRewards.add({ userId, taskId: task.id, taskName: task.name, reward: task.reward, earnedAt: now })
+    }
+    completed.push({ taskId: task.id, taskName: task.name, reward: task.reward })
+  }
+  return completed
 }

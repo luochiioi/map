@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="uts">
-import { ref, computed, onShow, onHide } from 'vue'
+import { ref, computed } from 'vue'
 // onLoad 在 uni-app x 中是全局页面生命周期钩子，无需 import（参见 openLocation.uvue）
 import { findById, doCheckIn } from '@/stores/useMarkerStore'
 import { currentLocation, accuracyText as locAccText, startPolling, stopPolling, distanceTo, getEffectiveCheckinRadius } from '@/stores/useLocationStore'

@@ -17,7 +17,7 @@ export function setActiveMarker(m: CheckinMarker | null): void {
 export function zoomIn(): void { if (scale.value < 20) scale.value++ }
 export function zoomOut(): void { if (scale.value > 3) scale.value-- }
 export function moveToLocation(lat: number, lng: number, targetScale: number = 16): void {
-  latitude.value = lat; longitude.value = lng; scale.value = targetScale
+  latitude.value = lat; longitude.value = lng; mapCenterLat.value = lat; mapCenterLng.value = lng; scale.value = targetScale
 }
 export function onRegionChangeEnd(centerLat: number, centerLng: number): void {
   mapCenterLat.value = centerLat; mapCenterLng.value = centerLng

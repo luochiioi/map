@@ -110,14 +110,17 @@
 </template>
 
 <script setup lang="uts">
-import { computed, onHide, onShow } from 'vue'
-import { deleteMarker, doneCount, findById, loadFromStorage as loadMarkers, markers, totalCount } from '@/stores/useMarkerStore'
-import { accuracyLevel, accuracyText, currentLocation, distanceTo, getEffectiveCheckinRadius, startTracking, stopTracking } from '@/stores/useLocationStore'
+import { computed } from 'vue'
+import { deleteMarker, doneCount, findById, loadFromStorage as loadMarkers, markers, syncFromCloud, totalCount } from '@/stores/useMarkerStore'
+import { accuracyLevel, accuracyText, currentLocation, distanceTo, getEffectiveCheckinRadius, pollLocationOnce, startTracking, stopTracking } from '@/stores/useLocationStore'
 import { activeMarker, consumeFocus, latitude, longitude, mapCenterLat, mapCenterLng, moveToLocation, onRegionChangeEnd, scale, setActiveMarker, zoomIn, zoomOut } from '@/stores/useMapStore'
 import { loadFromStorage as loadTasks } from '@/stores/useTaskStore'
 import { state as userState, clearUserInfo } from '@/user/index.uts'
 import type { CheckinMarker, CheckinEntry } from '@/types/marker'
 import { formatDateTime } from '@/utils/format'
+
+const LOCATE_SCALE: number = 17
+let hasCenteredOnUser: boolean = false
 
 const isLoggedIn = computed((): boolean => userState.userInfo != null)
 const authLabel = computed((): string => {
@@ -243,6 +246,31 @@ function fmtTime(ts: number): string {
   return formatDateTime(ts)
 }
 
+async function refreshCloudAndPanel(markerId: number): Promise<void> {
+  try {
+    const count = await syncFromCloud()
+    if (count > 0 && markerId > 0) {
+      const fresh = findById(markerId)
+      if (fresh != null) setActiveMarker(fresh)
+    }
+    loadTasks()
+  } catch (e) {
+    console.log('syncFromCloud failed', e)
+  }
+}
+
+async function centerOnUserOnce(): Promise<void> {
+  if (hasCenteredOnUser) return
+  try {
+    const loc = await pollLocationOnce()
+    hasCenteredOnUser = true
+    moveToLocation(loc.latitude, loc.longitude, LOCATE_SCALE)
+    onRegionChangeEnd(loc.latitude, loc.longitude)
+  } catch (e) {
+    console.log('centerOnUserOnce failed', e)
+  }
+}
+
 onShow((): void => {
   loadMarkers()
   loadTasks()
@@ -251,7 +279,13 @@ onShow((): void => {
   if (target != null) {
     moveToLocation(target.latitude, target.longitude, 16)
     setActiveMarker(target)
+    refreshCloudAndPanel(target.id)
+    return
   }
+  const marker = activeMarker.value
+  const markerId = marker != null ? marker.id : 0
+  refreshCloudAndPanel(markerId)
+  centerOnUserOnce()
 })
 
 onHide((): void => {
@@ -339,8 +373,6 @@ function doZoomIn(): void {
 function doZoomOut(): void {
   zoomOut()
 }
-
-const LOCATE_SCALE: number = 17
 
 function goLocate(): void {
   const ctx = ensureMapCtx()

@@ -3147,3 +3147,19 @@ map_visit_demo/
 > - **后台**：uni-admin Web 管理系统（5 个功能页面）
 > - **架构模式**：遵循 feiyi_Demo3 的 cloud object + auth-util 中间件 + UTSJSONObject 三板斧解析模式
 > - 可在 HBuilderX 中编译为 Android APK 并在真机上流畅运行
+
+---
+
+## 2026-05-09 P3.1 打卡同步与地图跳转修复
+
+本次修复聚焦 App 端打卡后的云端一致性：`marker-center.checkin()` 不再通过 `this._checkTasks()` 调内部云对象方法，而是使用独立 helper `checkTasksForMarker(uid, marker)`，避免 uniCloud 云对象运行时 `this` 绑定差异导致打卡成功后弹出 `this._checkTasks is not a function`。
+
+App 登录态统一使用 uni-id 用户 `_id` 作为 `userInfo.userId`，`user-center.login()` 与 `checkToken()` 均返回该 uid。原因是云端 `tourism_markers.checkedBy[].userId` 和 `createdBy` 都来自 `this.auth.uid`；如果客户端继续使用业务编号 `000_004`，地图面板会无法识别“我的打卡”和“他人打卡”。
+
+首页地图在 `onShow` 时会先加载本地缓存，再调用 `syncFromCloud()` 刷新 `checkedBy/checkinCount`，如果存在当前选中的 marker，会用云端新数据重设详情面板。这样从拍照打卡页返回后，底部卡片能显示最新打卡人数和打卡记录，而不是继续显示“还未有人打卡”。
+
+任务详情页的“前往”按钮改为 `requestFocus(marker)` 后 `redirectTo('/pages/index/index')`，失败时 `reLaunch` 兜底，确保用户直接回到主地图并定位到对应打卡点，而不是返回任务与成就页。
+
+主地图首次打开时会尝试 `pollLocationOnce()` 并居中到当前位置；只有当存在任务详情或打卡完成后的 focus target 时，才优先定位到目标打卡点。`useMapStore.moveToLocation()` 同步维护 `latitude/longitude` 和 `mapCenterLat/mapCenterLng`，避免新增点默认仍取旧中心。
+
+下一步建议继续做 P3.2：补全历史本地打卡记录的安全回填接口，按 `markerId + uid` 幂等补写当前用户自己的 `checkedBy` 记录；同时在后台增加“同步诊断”页，展示某个 marker 的本地种子、云端 marker、checkedBy、用户 uid 是否一致，方便真机双账号验收。

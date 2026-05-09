@@ -1,13 +1,20 @@
 <script setup lang="uts">
   import { state, checkSystemTheme, setSafeArea, setStatusBarHeight, setDevicePixelRatio } from '@/store/index.uts'
   import type { SafeArea } from '@/store/index.uts'
-  import { clearUserInfo } from '@/user/index.uts'
+  import { clearUserInfo, refreshUserInfo } from '@/user/index.uts'
+  import type { UserInfo } from '@/user/index.uts'
   import { flushSyncQueue, syncMarkers, pendingCount } from '@/utils/cloudSync'
 
   async function doVerifyAndSync(): Promise<void> {
     try {
       const userApi = uniCloud.importObject('user-center')
-      await userApi.checkToken()
+      const res = await userApi.checkToken() as UTSJSONObject
+      const data = res["data"] as UTSJSONObject | null
+      if (data != null) {
+        const userId = data["userId"] as string
+        const userName = data["userName"] as string
+        refreshUserInfo({ userId, userName } as UserInfo)
+      }
       console.log('Token 验证通过')
       syncMarkers()
     } catch (e) {
