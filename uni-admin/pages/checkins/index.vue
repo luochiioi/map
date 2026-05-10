@@ -211,32 +211,22 @@ function closePhotoPreview() {
   }
 }
 
+// 互联网产品标准审核 UX：单一明确的二次确认，"取消 / 违规删除"两个动作。
+// 违规判定 = 数据库 entry 删除 + 云存储照片物理清理（如果有）一起完成。
+// 这条记录的 photoCloudURL 仍保留在 tourism_audit_logs 里供回溯，无需在
+// 审核入口给出"保留照片"的子选项 —— 那是审计动作，不是审核动作。
 function confirmDeleteRecord(record, group) {
   const userLabel = record.userName || record.userId || '该用户'
   const hasPhoto = !!record.photoCloudURL
-  if (!hasPhoto) {
-    uni.showModal({
-      title: '确认删除',
-      content: `确认删除 ${userLabel} 在「${group.markerTitle || '该打卡点'}」的这条打卡记录？此操作不可撤销，且第一版不会回滚任务进度。`,
-      confirmText: '违规删除',
-      cancelText: '取消',
-      success: (res) => {
-        if (res.confirm) doDeleteRecord(record, group, false, false)
-      }
-    })
-    return
-  }
+  const photoLine = hasPhoto ? '\n该记录含照片，将一并物理删除云存储文件。' : ''
   uni.showModal({
-    title: '同步物理删除照片？',
-    content: `${userLabel} 在「${group.markerTitle || '该打卡点'}」的这条打卡含照片。「确认」将一并物理删除云存储文件；「仅删记录」只清空数据库 entry，文件保留。`,
-    confirmText: '确认',
-    cancelText: '仅删记录',
+    title: '确认违规删除',
+    content: `将删除 ${userLabel} 在「${group.markerTitle || '该打卡点'}」的这条打卡记录。${photoLine}\n此操作不可撤销，且第一版不会回滚任务进度。`,
+    confirmText: '违规删除',
+    confirmColor: '#d93026',
+    cancelText: '取消',
     success: (res) => {
-      if (res.confirm) {
-        doDeleteRecord(record, group, false, true)
-      } else if (res.cancel) {
-        doDeleteRecord(record, group, false, false)
-      }
+      if (res.confirm) doDeleteRecord(record, group, false, hasPhoto)
     }
   })
 }
@@ -257,17 +247,15 @@ function confirmDeleteFromPreview() {
     markerId: snapshot.markerId,
     markerTitle: snapshot.markerTitle
   }
+  const hasPhoto = !!snapshot.url
   uni.showModal({
-    title: '同步物理删除照片？',
-    content: `确认删除 ${snapshot.userName || snapshot.userId || '该用户'} 在「${snapshot.markerTitle || '该打卡点'}」的这条打卡记录？「确认」会一并物理删除云存储照片；「仅删记录」保留文件。`,
-    confirmText: '确认',
-    cancelText: '仅删记录',
+    title: '确认违规删除',
+    content: `将删除 ${snapshot.userName || snapshot.userId || '该用户'} 在「${snapshot.markerTitle || '该打卡点'}」的这条打卡记录${hasPhoto ? '，并一并物理删除云存储照片' : ''}。\n此操作不可撤销。`,
+    confirmText: '违规删除',
+    confirmColor: '#d93026',
+    cancelText: '取消',
     success: (res) => {
-      if (res.confirm) {
-        doDeleteRecord(record, group, true, true)
-      } else if (res.cancel) {
-        doDeleteRecord(record, group, true, false)
-      }
+      if (res.confirm) doDeleteRecord(record, group, true, hasPhoto)
     }
   })
 }

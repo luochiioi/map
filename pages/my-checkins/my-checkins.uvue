@@ -146,18 +146,7 @@ function previewPhoto(entry: MyCheckinEntry): void {
   uni.previewImage({ urls: list, current: url!! })
 }
 
-// 删除采用 actionSheet（PITFALLS §10.4 四次调整：showModal 5.07 ClassCastException）
-function confirmDelete(entry: MyCheckinEntry): void {
-  uni.showActionSheet({
-    itemList: ['删除这条打卡'],
-    success: (res: ShowActionSheetSuccess): void => {
-      if (res.tapIndex == 0) {
-        runDelete(entry)
-      }
-    }
-  })
-}
-
+// PITFALLS §10.4 三次调整：UTS 5.07 函数提升不稳定，被引用的函数必须先声明
 async function runDelete(entry: MyCheckinEntry): Promise<void> {
   try {
     const deleted = await deleteCloudCheckin(entry.markerId)
@@ -182,6 +171,19 @@ async function runDelete(entry: MyCheckinEntry): Promise<void> {
     uni.showToast({ title: msg.length > 0 ? msg : '删除失败', icon: 'none' })
   }
 }
+
+// 删除采用 actionSheet（PITFALLS §10.4 四次调整：showModal 5.07 ClassCastException）
+// actionSheet 自带"取消"按钮，符合"误点能取消"的标准 UX
+function confirmDelete(entry: MyCheckinEntry): void {
+  uni.showActionSheet({
+    itemList: ['删除这条打卡'],
+    success: (res: ShowActionSheetSuccess): void => {
+      if (res.tapIndex == 0) {
+        runDelete(entry)
+      }
+    }
+  })
+}
 </script>
 
 <style>
@@ -201,7 +203,7 @@ async function runDelete(entry: MyCheckinEntry): Promise<void> {
 
 .card-wrap { padding: 0 24rpx; margin-bottom: 16rpx; }
 
-.month-label { display: block; font-size: 22rpx; color: #88928d; margin: 12rpx 4rpx 8rpx 4rpx; font-weight: 500; }
+.month-label { font-size: 22rpx; color: #88928d; margin: 12rpx 4rpx 8rpx 4rpx; font-weight: 500; }
 
 .card { background-color: #ffffff; border-radius: 20rpx; padding: 24rpx; display: flex; flex-direction: column; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.04); }
 
