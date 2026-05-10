@@ -381,29 +381,17 @@ onHide((): void => {
   stopTracking()
 })
 
-function normalizeMarkerIdLocal(value: any): number | null {
-  if (value == null) return null
-  if (typeof value === 'number') {
-    const n = value as number
-    return !isNaN(n) ? n : null
-  }
-  if (typeof value === 'string') {
-    const raw = (value as string).trim()
-    if (raw.length === 0) return null
-    const n = parseInt(raw)
-    if (isNaN(n)) return null
-    if (n.toString() != raw) return null
-    return n
-  }
-  return null
-}
-
 function onMarkerTap(e: UniMapMarkerTapEvent): void {
   const detail = e.detail
   if (detail == null) return
-  const markerId = normalizeMarkerIdLocal(detail.markerId)
-  if (markerId == null) {
+  const rawMarkerId = detail.markerId
+  if (rawMarkerId == null) {
     console.log('[map] marker tap without markerId', JSON.stringify(detail))
+    return
+  }
+  const markerId = rawMarkerId as number
+  if (isNaN(markerId)) {
+    console.log('[map] marker tap with invalid markerId', JSON.stringify(detail))
     return
   }
   const marker = findById(markerId)
