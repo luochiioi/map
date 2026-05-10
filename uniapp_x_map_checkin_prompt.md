@@ -3704,3 +3704,25 @@ P4 已经在 `rewards` 集合里写了 `{ userId, routeId|taskId, reward, source
 - 云函数语法：`node --check` 覆盖 13 个 `index.obj.js` / `*-service.js` 文件通过。
 - UTS 静态自检：Task 1 后扫描 `.uvue/.uts` 未发现新增非法 `Number(` / `Number.` 调用或非法 `display`；命中仅为 route-detail 既有 PITFALLS 注释。
 - HBuilderX UI 真机编译仍需在本机打开 HBuilderX、确认 `map_new` 与需要时的 `uni-admin` 已导入/打开后复验；CLI 超时不作为代码失败依据。
+
+## 2026-05-11 P5.2 下一轮计划入口（真机反馈修复与奖励记录）
+
+**计划文档**：`docs/superpowers/plans/2026-05-11-p5.2-feedback-fixes.md`
+
+**用户新增反馈归档**：
+1. 后台新增的打卡点在 App 地图能显示图标/标题/位置，但直接点击图标只显示标题，不弹 marker-panel；从任务页定位到该点可以打开详情并正常打卡，打卡后详情内容也正常。下一轮优先检查 `markertap.detail.markerId`、`checkin-map` SDK marker id、`findById()` 的 number/string/id 边界。
+2. `pages/my-checkins/my-checkins.uvue` “在地图上查看”当前无反应，根因同类：App 无 tabBar 却使用 `switchTab`。应统一改为 focus payload + `reLaunch('/pages/index/index')`。
+3. `pages/route-detail/route-detail.uvue` “去这里”当前可能返回主题路线页，因为 `navigateBack()` 只回上一页。产品期望是回首页地图并打开对应 marker-panel，下一轮要改成统一跨页聚焦 helper。
+4. uni-admin 未登录时会停留在后台页错误态，没有“去登录”按钮；下一轮给后台各页加登录恢复 CTA。
+5. 地图缩小时 marker 图标尺寸不变，遮挡地图内容。下一轮按 `scale` 分档输出 marker width/height；图标图片替换位置是 `static/marker_default.png` 与 `static/marker_checked.webp`，文件名不变可直接替换，文件名变更需同步 `stores/useMarkerStore.uts` 常量。
+6. 用户兑换路线奖励后，后台用户管理只能看到路线/任务奖励计数，没有明细记录页。下一轮新增后台“奖励记录”页，入口放在打卡记录 quick-nav / dashboard，查询 `rewards` 集合展示用户、来源、积分、待兑/已兑、获得/兑换时间。
+
+**下一轮建议 commits**：
+- Task 1：`fix app map focus navigation`
+- Task 2：`fix cloud marker tap detail panel`
+- Task 3：`add admin login recovery actions`
+- Task 4：`tune map marker icon scaling`
+- Task 5：`add admin reward records page`
+- Task 6：`document p5.2 feedback fixes`
+
+**下一次会话提示词**：直接复制 `docs/superpowers/plans/2026-05-11-p5.2-feedback-fixes.md` 第 3 节“下一次迭代 AI 提示词”。

@@ -1328,3 +1328,21 @@ HBuilderX 5.07 CLI 的 `launch app-android --compile true` 不是独立 headless
 - 失败时优先看 HBuilderX 控制台/运行日志，不要把 CLI 超时当成代码编译失败。
 
 同轮真机反馈还确认：`pages/route-detail/route-detail.uvue` 的“去这里”按钮当前 `requestFocus(local)` 后调用 `uni.switchTab({ url:'/pages/index/index' })`，但项目 `pages.json` 没有配置 tabBar，因此 `switchTab` 对首页不是正确导航 API，表现为点击无反应。非 tabBar 页面返回首页应改用本项目已验证的普通页面导航链路，例如 `uni.navigateBack()` 到上一层，或在无法确定栈时 `uni.reLaunch({ url:'/pages/index/index' })`，并保留 `requestFocus(local)` 让首页 `consumeFocus()` 聚焦 marker。
+
+### 规则 37：App 跨页打开地图 marker 不要只靠 navigateBack；用持久化 focus payload + reLaunch 首页
+
+P5.1 把路线详情“去这里”从 `switchTab` 改成 `navigateBack()` 后，真机反馈暴露了第二层问题：如果路线详情是从 `/pages/routes/routes` 进入的，`navigateBack()` 只会回到主题路线页，不会回到首页地图；`pages/my-checkins/my-checkins.uvue` 里“在地图上查看”仍然使用 `switchTab({ url:'/pages/index/index' })`，在无 tabBar 的 App 项目里同样无效。
+
+**产品语义**：所有“在地图上查看 / 去这里 / 定位到打卡点”入口都应该回到 `/pages/index/index`，并直接打开 marker-panel，而不是回到调用页的上一层。
+
+**标准模式**：
+- 在 `stores/useMapStore.uts` 中维护统一 focus payload：`{ markerId, latitude, longitude, title }`。
+- `requestFocusByMarker()` / `requestFocusById()` 同时写内存 ref 与 `uni.setStorageSync('pending_map_focus', JSON.stringify(payload))`；storage 兜底可以覆盖 `reLaunch` 后页面实例重建的情况。
+- 跨页入口统一 `uni.reLaunch({ url:'/pages/index/index' })`，不要用 `switchTab`，也不要在目标不是首页时用 `navigateBack`。
+- 首页 `onShow` 先 `consumeFocusPayload()`，必要时先 `syncFromCloud(uid)`，再 `moveToLocation(payload.latitude, payload.longitude, 16)` + `setActiveMarker(findById(payload.markerId))`。
+- 保留旧 `requestFocus(marker)` 只做兼容；新增入口不要继续扩散旧 API。
+
+**反模式**：
+1. App 无 tabBar 仍调用 `uni.switchTab({ url:'/pages/index/index' })` —— 点击无反应或失败回调被忽略。
+2. 从二级页 `navigateBack()` —— 只能回上一页，无法保证回首页地图。
+3. 只写内存 focusTarget 后 `reLaunch` —— 页面/模块实例重建时可能丢 focus；storage payload 更稳。
