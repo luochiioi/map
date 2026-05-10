@@ -5,35 +5,64 @@ const colRewards = db.collection('rewards')
 const colUserProfiles = db.collection('users')
 const colAuditLogs = db.collection('tourism_audit_logs')
 const colRoutes = db.collection('tourism_routes')
+const colUserRoutes = db.collection('user_routes')
 const authUtil = require('auth-util')
 const { createRepairCheckinPlan, createDeleteCheckinPlan } = require('./repair-service')
+const {
+  calcRouteProgress,
+  findNewlyCompletedRoutes,
+  buildUserRouteEntry,
+  buildRouteRewardEntry
+} = require('./route-completion')
 
-// 复刻自 admin-center/route-service.js 的 calcRouteProgress 最小写法。
-// uniCloud 不支持跨 cloudfunction require（PITFALLS §规则 28），但 schema
-// 一致性由 admin-center/route-service.test.js 守住——计算逻辑完全相同：
-// route.markerIds ∩ userCheckedMarkerIds = doneMarkerIds。
-function calcRouteProgressLocal(route, userCheckedMarkerIds) {
-  const routeIds = (route && Array.isArray(route.markerIds)) ? route.markerIds : []
-  const userIds = Array.isArray(userCheckedMarkerIds) ? userCheckedMarkerIds : []
-  const userSet = new Set(userIds.map(item => Number(item)))
-  const doneMarkerIds = []
-  const pendingMarkerIds = []
-  for (let i = 0; i < routeIds.length; i++) {
-    const n = Number(routeIds[i])
-    if (userSet.has(n)) {
-      doneMarkerIds.push(n)
-    } else {
-      pendingMarkerIds.push(n)
+// 拉当前 uid 在所有 marker 中的"已打卡 markerId 集合"。
+// 嵌套字段查询 'checkedBy.userId': uid 复用 §规则 29 的索引友好写法。
+async function getUserDoneMarkerIds(uid) {
+  if (!uid) return []
+  const id = String(uid)
+  const res = await col
+    .where({ 'checkedBy.userId': id })
+    .field({ id: true, checkedBy: true })
+    .get()
+  return (res.data || [])
+    .filter(marker => (marker.checkedBy || []).some(entry => String(entry && entry.userId || '') === id))
+    .map(marker => Number(marker.id))
+}
+
+// checkin / repairCheckin 写库成功后调用：找新完成的路线 → 幂等写入
+// user_routes + rewards → 返回 completedRoutes 给客户端弹庆祝 modal。
+// 任何子步骤失败仅 console.log，不影响主 checkin 响应（与 §规则 28 审计
+// 失败不阻塞主流程同思路：路线奖励是辅助语义，主流程是打卡本身）。
+async function detectAndRecordCompletedRoutes(uid, now) {
+  if (!uid) return []
+  try {
+    const [routesRes, userRoutesRes, doneMarkerIds] = await Promise.all([
+      colRoutes.where({ status: 'active' }).get(),
+      colUserRoutes.where({ userId: String(uid) }).field({ routeId: true }).get(),
+      getUserDoneMarkerIds(uid)
+    ])
+    const routes = routesRes.data || []
+    const alreadyCompletedRouteIds = (userRoutesRes.data || []).map(row => Number(row.routeId))
+    const newly = findNewlyCompletedRoutes(routes, doneMarkerIds, alreadyCompletedRouteIds)
+
+    const completedRoutes = []
+    for (const route of newly) {
+      try {
+        await colUserRoutes.add(buildUserRouteEntry(uid, route, now))
+        await colRewards.add(buildRouteRewardEntry(uid, route, now))
+        completedRoutes.push({
+          id: Number(route.id),
+          name: String(route.name || ''),
+          reward: String(route.reward || '')
+        })
+      } catch (e) {
+        console.log('[routes] record completion failed', route && route.id, e && e.message ? e.message : e)
+      }
     }
-  }
-  const total = routeIds.length
-  const done = doneMarkerIds.length
-  return {
-    total,
-    done,
-    ratio: total > 0 ? done / total : 0,
-    doneMarkerIds,
-    pendingMarkerIds
+    return completedRoutes
+  } catch (e) {
+    console.log('[routes] detectAndRecordCompletedRoutes failed', e && e.message ? e.message : e)
+    return []
   }
 }
 
@@ -142,8 +171,9 @@ module.exports = {
     })
 
     const completedTasks = await checkTasksForMarker(this.auth.uid, marker)
+    const completedRoutes = await detectAndRecordCompletedRoutes(this.auth.uid, Date.now())
 
-    return { errCode: 0, errMsg: '打卡成功', data: { completedTasks } }
+    return { errCode: 0, errMsg: '打卡成功', data: { completedTasks, completedRoutes } }
   },
 
   async repairCheckin(data) {
@@ -175,7 +205,8 @@ module.exports = {
     })
 
     const completedTasks = await checkTasksForMarker(this.auth.uid, marker)
-    return { errCode: 0, errMsg: '补传成功', data: { repaired: true, completedTasks } }
+    const completedRoutes = await detectAndRecordCompletedRoutes(this.auth.uid, now)
+    return { errCode: 0, errMsg: '补传成功', data: { repaired: true, completedTasks, completedRoutes } }
   },
 
   async deleteCheckin(data) {
@@ -306,17 +337,7 @@ module.exports = {
       .get()
     const routes = routesRes.data || []
 
-    let userCheckedMarkerIds = []
-    if (this.auth.uid) {
-      const uid = String(this.auth.uid)
-      const markerRes = await col
-        .where({ 'checkedBy.userId': uid })
-        .field({ id: true, checkedBy: true })
-        .get()
-      userCheckedMarkerIds = (markerRes.data || [])
-        .filter(marker => (marker.checkedBy || []).some(entry => String(entry && entry.userId || '') === uid))
-        .map(marker => Number(marker.id))
-    }
+    const userCheckedMarkerIds = await getUserDoneMarkerIds(this.auth.uid)
 
     const list = routes.map(route => ({
       _id: route._id,
@@ -327,7 +348,7 @@ module.exports = {
       markerIds: Array.isArray(route.markerIds) ? route.markerIds.map(Number) : [],
       reward: route.reward || '',
       status: route.status,
-      progress: calcRouteProgressLocal(route, userCheckedMarkerIds)
+      progress: calcRouteProgress(route, userCheckedMarkerIds)
     }))
 
     return { errCode: 0, data: list }
