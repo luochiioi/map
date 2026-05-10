@@ -3726,3 +3726,24 @@ P4 已经在 `rewards` 集合里写了 `{ userId, routeId|taskId, reward, source
 - Task 6：`document p5.2 feedback fixes`
 
 **下一次会话提示词**：直接复制 `docs/superpowers/plans/2026-05-11-p5.2-feedback-fixes.md` 第 3 节“下一次迭代 AI 提示词”。
+# 2026-05-11 P5.2 已落地（真机反馈修复与奖励记录后台页）
+
+**落地 commits**：
+- `ce7d8ec` Task 1：统一 App 跨页地图聚焦链路。`stores/useMapStore.uts` 新增 storage-backed focus payload；我的打卡、路线详情、任务/点位入口统一 `reLaunch('/pages/index/index')`，由首页消费 payload 后同步云端并打开 marker-panel。
+- `87284ec` Task 2：修复后台新增 marker 点击不弹详情。新增 `utils/marker-id-service.js` + node:test，首页 `onMarkerTap` 归一化 markerId 后再 `findById`。
+- `3552025` Task 3：后台未登录/无权限错误恢复入口。新增 `uni-admin/utils/adminAuth.js`，dashboard / markers / checkins / users / tasks / routes / audit 出现登录权限错误时展示“去登录”。
+- `5a4f690` Task 4：地图 marker 图标按 scale 分档缩放。scale <= 10 输出 22px，11-13 输出 28px，14-16 输出 34px，>=17 输出 40px。
+- `6361626` Task 5：后台奖励记录页。`admin-center.getRewardRecords({ offset, limit, status?, source?, userId? })` 返回归一化奖励记录；`uni-admin/pages/rewards/index.vue` 展示用户、来源、积分、待兑/已兑、获得/兑换时间。
+
+**验收点**：
+1. 我的打卡页“在地图上查看”、路线详情“去这里”、任务/点位入口都应回到首页地图并打开对应 marker-panel。
+2. 后台新增“长城打卡点”后，App 首页地图直接点击图标应弹详情；关闭后再次点击仍可弹；打卡后再次点击仍可弹。
+3. 后台任一主要页面遇到“请先登录 / 未登录 / 无管理员权限 / token”类错误，应显示“去登录”，点击进入 `/pages/login/index`。
+4. 地图缩小时 marker 图标随 scale 变小，减少遮挡；放大到高 zoom 后恢复可点尺寸。
+5. 后台“奖励记录”页可按状态、来源、userId 筛选，展示用户、路线/任务来源、积分、待兑/已兑、获得时间、兑换时间。
+
+**Marker 图标替换说明**：
+- 未打卡图标：`static/marker_default.png`
+- 已打卡图标：`static/marker_checked.webp`
+- 只替换视觉文件且文件名不变时，不需要改代码。
+- 如果改文件名，需要同步修改 `stores/useMarkerStore.uts` 里的 `DEFAULT_MARKER_ICON` / `CHECKED_MARKER_ICON` 常量。
