@@ -3677,3 +3677,30 @@ P4 已经在 `rewards` 集合里写了 `{ userId, routeId|taskId, reward, source
 2. 后台用户管理统计口径重构：显示“有效打卡数”和“累计打卡数”，删除记录后有效数能变化。
 3. 后台增加用户积分/奖励聚合：按 userId 汇总 rewards，展示总积分、待兑/已兑、路线奖励/任务奖励数量。
 4. 如本轮顺手触碰 rewards schema，补 `rewardPoints` 规范化字段；否则先用 helper 从 `reward` 文案解析整数积分并写单测守住。
+
+## 2026-05-10 P5.1 已落地（真机反馈修复 + 后台统计/积分增强）
+
+**落地 commits**：
+- `7cb9a40` Task 1：修复 `pages/route-detail/route-detail.uvue` “去这里”导航，保留 `requestFocus(local)`，有页面栈时走 `uni.navigateBack()`，无可返回页面时 `uni.reLaunch({ url:'/pages/index/index' })`，不再对非 tabBar 项目调用 `switchTab`。
+- `be5ba59` Task 2/3：后台用户统计拆口径，新增 admin-center active checkins 聚合与 rewards 积分聚合；用户管理页展示“有效打卡 / 累计打卡”以及“总积分 / 待兑 / 已兑”；新写入 route/task rewards 带 `rewardPoints`，旧数据仍通过 `parseRewardPoints(reward)` 解析。
+
+**统计口径定义**：
+- `totalCheckins`：累计打卡数，来自 `users` 用户扩展表的历史累计计数；管理员删除打卡记录后不回退。
+- `activeCheckins`：当前有效打卡数，服务端从 `tourism_markers.checkedBy[]` 按 userId 实时聚合；管理员删除 checkedBy 记录后会随之下降。
+- `totalRewardPoints`：用户所有 rewards 的积分合计，优先读 `rewardPoints`，旧行从 `reward` 文案解析首个整数（如 `20 积分` / `20 points`）。
+- `pendingRewardPoints` / `claimedRewardPoints`：按 `rewardClaimed === true` 拆分待兑与已兑积分；`pendingCount` / `claimedCount` 同理统计奖励条数。
+- `routeRewardCount` / `taskRewardCount`：`source === 'route'` 或有 `routeId` 的计入路线奖励，其余兼容旧 task 行计入任务奖励。
+
+**真机 / 后台验收点**：
+1. 路线详情点击“去这里”后回到首页地图，并由首页现有 `consumeFocus()` 打开/聚焦对应 marker；若路线详情是冷启动栈顶，也能 `reLaunch` 回首页后消费 focus。
+2. 后台用户管理列表显示“有效打卡 X / 累计 Y”，详情弹层分别显示“有效打卡”和“累计打卡”。
+3. 管理员删除某用户某条 checkedBy 打卡记录后，重新进入用户管理页：该用户 `activeCheckins` 下降，`totalCheckins` 保持历史累计值。
+4. 用户管理列表/详情显示积分汇总，至少可见总积分、待兑积分、已兑积分；旧 rewards 文案行也能被积分解析 helper 统计。
+5. 新完成的任务奖励 / 路线奖励写入 `rewards.rewardPoints`，并继续保留旧字段 `reward`、`source`、`rewardClaimed` 兼容 App 我的奖励页。
+
+**验证记录**：
+- RED：新增 helper 测试后先看到 6 个预期失败（缺 `deriveActiveCheckinsFromMarkers`、admin `reward-service`、`parseRewardPoints/buildTaskRewardEntry`、route reward `rewardPoints`）。
+- GREEN：`node --test` 全套 72 例通过（包含新增 `admin-center/reward-service.test.js`）。
+- 云函数语法：`node --check` 覆盖 13 个 `index.obj.js` / `*-service.js` 文件通过。
+- UTS 静态自检：Task 1 后扫描 `.uvue/.uts` 未发现新增非法 `Number(` / `Number.` 调用或非法 `display`；命中仅为 route-detail 既有 PITFALLS 注释。
+- HBuilderX UI 真机编译仍需在本机打开 HBuilderX、确认 `map_new` 与需要时的 `uni-admin` 已导入/打开后复验；CLI 超时不作为代码失败依据。
