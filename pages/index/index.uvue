@@ -373,11 +373,39 @@ onHide((): void => {
   stopTracking()
 })
 
+function normalizeMarkerIdLocal(value: any): number | null {
+  if (value == null) return null
+  if (typeof value === 'number') {
+    const n = value as number
+    return !isNaN(n) ? n : null
+  }
+  if (typeof value === 'string') {
+    const raw = (value as string).trim()
+    if (raw.length === 0) return null
+    const n = parseInt(raw)
+    if (isNaN(n)) return null
+    if (n.toString() != raw) return null
+    return n
+  }
+  return null
+}
+
 function onMarkerTap(e: UniMapMarkerTapEvent): void {
   const detail = e.detail
-  if (detail == null || detail.markerId == null) return
-  const marker = findById(detail.markerId)
-  if (marker != null) setActiveMarker(marker)
+  if (detail == null) return
+  const markerId = normalizeMarkerIdLocal(detail.markerId)
+  if (markerId == null) {
+    console.log('[map] marker tap without markerId', JSON.stringify(detail))
+    return
+  }
+  const marker = findById(markerId)
+  if (marker != null) {
+    setActiveMarker(marker)
+    repairAndRefreshForUser(marker.id)
+    return
+  }
+  console.log('[map] marker tap id not found', markerId.toString())
+  uni.showToast({ title: '鎵撳崱鐐规鍦ㄥ悓姝ワ紝璇风◢鍚庡啀鐐?, icon: 'none' })
 }
 
 function navigateToAddMarkerAt(centerLat: number, centerLng: number): void {
