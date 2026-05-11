@@ -1364,3 +1364,14 @@ Standard pattern:
 - Do not call `findById(detail.markerId)` for native map tap events.
 
 This is an SDK boundary rule, not a data sync rule. If cloud sync logs say local/cloud counts match but tapping a cloud-created marker logs `marker tap id not found <large-or-truncated-number>`, check this boundary first.
+
+
+### Rule 39: Focus navigation should reuse an existing index page before reLaunch
+
+When a secondary page needs to focus a map marker on `/pages/index/index`, first write the focus payload, then call `returnToIndexForFocus()`. That helper scans `getCurrentPages()` for an existing index page and uses `uni.navigateBack({ delta })` when possible. Only use `uni.reLaunch({ url: '/pages/index/index' })` when no index page exists in the stack.
+
+Reason: Android native map can briefly render a white surface when the index page is destroyed and recreated by `reLaunch`, especially while markers are also being refreshed. Reusing the existing index page keeps the map instance stable and reduces duplicate cloud sync work.
+
+Anti-patterns:
+- `requestFocusById(...)` followed by unconditional `uni.reLaunch({ url: '/pages/index/index' })` from pages that were opened from the homepage.
+- Running marker sync in `App.uvue` token verification and again in `pages/index/index.uvue` onShow. Let the index page own marker sync so startup/focus flows do not triple-load.

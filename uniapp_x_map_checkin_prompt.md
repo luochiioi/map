@@ -3754,3 +3754,22 @@ P4 已经在 `rewards` 集合里写了 `{ userId, routeId|taskId, reward, source
 Runtime feedback: after admin-created markers synced successfully, tapping the marker could log `marker tap id not found 215432543`, show `Marker syncing, try again`, and leave the map blank or stuck. Root cause: admin-created business marker ids are timestamp-sized, but native Android map `Marker.id` / `markertap.detail.markerId` is SDK-bound and can be truncated or boxed differently.
 
 Fix direction: keep `CheckinMarker.id` as the real business id, but render native map DTOs with small SDK ids from `sdkMarkerIdForIndex(index)`. `onMarkerTap` maps the SDK id back through `findBySdkMarkerId()` before opening marker-panel. Acceptance point: admin-created markers can be tapped directly, reopened after closing, and reopened after checkin without showing the syncing fallback.
+
+
+## 2026-05-11 P5.2 hotfix note: focus navigation and task reward semantics
+
+**Commit:** `5417deb fix focus navigation and task rewards`
+
+**Fixes:**
+- App focus navigation now writes the same focus payload but calls `returnToIndexForFocus()`: if `/pages/index/index` already exists in the page stack, it uses `navigateBack({ delta })`; otherwise it falls back to `reLaunch`. This targets the white native-map surface seen after entering "????" and tapping "??????".
+- App startup token verification no longer calls `syncMarkers(userId)` before the homepage has loaded. The homepage owns marker sync, reducing the repeated 2-3 sync bursts during focus flows.
+- Task rewards are now treated as auto-issued points. New task reward rows are written with `rewardClaimed:true` and `claimedAt:earnedAt`; legacy task rows without `source` are also normalized as task/claimed in App/Admin reads.
+- Admin reward records `source=task` filter now includes legacy task reward rows without `source:'task'`, so route/task filters match the semantics used by the list display.
+
+**Acceptance points:**
+1. From App "????" -> "??????", the app should return to the existing homepage map and open the marker panel without a white map surface.
+2. From tasks/task-detail/route-detail -> marker focus, the app should return to homepage map with fewer repeated sync logs.
+3. Admin rewards page: ?? shows route + task; ?? shows route only; ?? shows task including legacy task rows.
+4. Task rewards should display as already issued/claimed and should not require user redemption; route rewards remain redeemable.
+
+**Next plan:** `docs/superpowers/plans/2026-05-11-p5.3-points-wallet-and-ux.md`.
