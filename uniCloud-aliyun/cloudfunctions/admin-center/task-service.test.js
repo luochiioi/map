@@ -3,7 +3,8 @@ const test = require('node:test')
 
 const {
   validateTaskInput,
-  buildTaskUpsertDoc
+  buildTaskUpsertDoc,
+  nextTaskId
 } = require('./task-service')
 
 test('validateTaskInput rejects missing id or name', () => {
@@ -69,4 +70,29 @@ test('buildTaskUpsertDoc validates reward kind and normalizes archived status', 
   assert.equal(doc.reward, '')
   assert.equal(doc.rewardPoints, 0)
   assert.equal(doc.status, 'archived')
+})
+
+test('nextTaskId generates the next sequential task id', () => {
+  assert.equal(nextTaskId([
+    { id: 'task_001' },
+    { id: 'task_009' },
+    { id: 'task_010' },
+    { id: 'legacy_task' }
+  ]), 'task_011')
+  assert.equal(nextTaskId([]), 'task_001')
+})
+
+test('buildTaskUpsertDoc generates id when creating a task without one', () => {
+  const doc = buildTaskUpsertDoc({
+    name: '自动编号任务',
+    targetMarkerId: 8,
+    rewardKind: 'points',
+    rewardPoints: 20
+  }, 'admin-1', 1700000000, [
+    { id: 'task_001' },
+    { id: 'task_006' }
+  ])
+
+  assert.equal(doc.id, 'task_007')
+  assert.equal(doc.name, '自动编号任务')
 })

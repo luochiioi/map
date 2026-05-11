@@ -31,6 +31,12 @@
       }
     },
     {
+      "path": "pages/task-records/index",
+      "style": {
+        "navigationBarTitleText": "任务记录"
+      }
+    },
+    {
       "path": "pages/users/index",
       "style": {
         "navigationBarTitleText": "用户管理"

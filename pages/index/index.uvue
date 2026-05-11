@@ -567,7 +567,7 @@ function doDelete(): void {
 <style>
 .map-page { flex: 1; display: flex; flex-direction: column; width: 750rpx; height: 100%; position: relative; }
 .map-component { width: 750rpx; flex: 1; }
-.auth-chip { position: absolute; top: calc(env(safe-area-inset-top) + 12rpx); left: 24rpx; z-index: 20; padding: 10rpx 24rpx; border-radius: 24rpx; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.08); }
+.auth-chip { position: absolute; top: calc(env(safe-area-inset-top) + 44rpx); left: 24rpx; z-index: 20; padding: 10rpx 24rpx; border-radius: 24rpx; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.08); }
 .auth-chip-on { background-color: #2ecc71; }
 .auth-chip-off { background-color: #ffffff; border: 2rpx solid #2ecc71; }
 .auth-chip-text { font-size: 24rpx; font-weight: 500; }

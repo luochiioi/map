@@ -1,31 +1,21 @@
 <template>
-  <view class="rewards-page">
+  <view class="task-records-page">
     <AdminHeader
-      title="奖励记录"
-      subtitle="查看用户通过主题路线获得、兑换的路线奖励"
+      title="任务记录"
+      subtitle="查看用户完成任务后自动发放的积分记录"
       @refresh="reload"
     />
 
     <view v-if="summary" class="summary-row">
       <view class="summary-card primary">
-        <text class="summary-label">已发放积分</text>
-        <text class="summary-value">{{ summary.issuedPoints }}</text>
-        <text class="summary-foot">任务 {{ summary.taskIssuedPoints }} + 路线 {{ summary.routeIssuedPoints }}</text>
-      </view>
-      <view class="summary-card">
-        <text class="summary-label">待领取路线积分</text>
-        <text class="summary-value">{{ summary.pendingRoutePoints }}</text>
+        <text class="summary-label">任务已发放积分</text>
+        <text class="summary-value">{{ summary.taskIssuedPoints }}</text>
+        <text class="summary-foot">任务奖励自动发放，无需用户兑换</text>
       </view>
       <view class="summary-card">
         <text class="summary-label">累计获得</text>
         <text class="summary-value">{{ summary.totalEarnedPoints }}</text>
       </view>
-    </view>
-
-    <view class="filter-row">
-      <text class="filter-chip" :class="statusFilter === '' ? 'active' : ''" @click="setStatus('')">全部</text>
-      <text class="filter-chip" :class="statusFilter === 'pending' ? 'active' : ''" @click="setStatus('pending')">待兑</text>
-      <text class="filter-chip" :class="statusFilter === 'claimed' ? 'active' : ''" @click="setStatus('claimed')">已兑</text>
     </view>
 
     <view class="search-bar">
@@ -36,24 +26,24 @@
 
     <view v-if="errorText" class="notice error">{{ errorText }}</view>
     <button v-if="needsLogin" class="login-cta" @click="goLogin">去登录</button>
-    <view v-if="loading && list.length === 0" class="notice">正在加载奖励记录...</view>
+    <view v-if="loading && list.length === 0" class="notice">正在加载任务记录...</view>
 
-    <text class="page-desc">共 {{ total }} 条奖励记录</text>
+    <text class="page-desc">共 {{ total }} 条任务记录</text>
 
     <view v-if="!loading && list.length === 0" class="empty">
-      暂无路线奖励记录。用户完成有奖励的主题路线后会在这里沉淀奖励明细。
+      暂无任务记录。用户完成任务后，自动发放的任务积分会在这里沉淀。
     </view>
 
-    <view v-for="row in list" :key="row._id" class="reward-card">
+    <view v-for="row in list" :key="row._id" class="record-card">
       <view class="card-head">
         <view>
           <text class="user-name">{{ row.userName || row.userId || '--' }}</text>
           <text class="user-id">UID: {{ row.userId || '--' }}</text>
         </view>
-        <text class="status-pill" :class="row.rewardClaimed ? 'claimed' : 'pending'">{{ row.statusText }}</text>
+        <text class="status-pill">已发放</text>
       </view>
       <view class="card-body">
-        <text class="source-pill" :class="row.sourceType">{{ sourceLabel(row.sourceType) }}</text>
+        <text class="source-pill">任务</text>
         <text class="source-title">{{ row.sourceTitle || '--' }}</text>
       </view>
       <view class="meta-grid">
@@ -70,8 +60,8 @@
           <text class="meta-value">{{ formatTime(row.earnedAt) }}</text>
         </view>
         <view class="meta-item">
-          <text class="meta-label">兑换时间</text>
-          <text class="meta-value">{{ formatTime(row.claimedAt) }}</text>
+          <text class="meta-label">发放时间</text>
+          <text class="meta-value">{{ formatTime(row.claimedAt || row.earnedAt) }}</text>
         </view>
       </view>
     </view>
@@ -95,7 +85,6 @@ const hasMore = ref(false)
 const loading = ref(false)
 const errorText = ref('')
 const needsLogin = ref(false)
-const statusFilter = ref('')
 const userIdInput = ref('')
 let offset = 0
 const limit = 20
@@ -103,13 +92,7 @@ const api = uniCloud.importObject('admin-center')
 
 onShow(() => { reload() })
 
-function setStatus(status) {
-  statusFilter.value = status
-  reload()
-}
-
 function resetFilters() {
-  statusFilter.value = ''
   userIdInput.value = ''
   reload()
 }
@@ -124,8 +107,7 @@ function reload() {
 
 async function fetchSummary() {
   try {
-    const payload = {}
-    payload.source = 'route'
+    const payload = { source: 'task' }
     if (userIdInput.value.trim().length > 0) payload.userId = userIdInput.value.trim()
     const res = await api.getPointsSummary(payload)
     if (res.errCode !== 0) {
@@ -146,13 +128,12 @@ async function fetchData() {
   try {
     const payload = {
       offset,
-      limit
+      limit,
+      source: 'task'
     }
-    if (statusFilter.value) payload.status = statusFilter.value
-    payload.source = 'route'
     if (userIdInput.value.trim().length > 0) payload.userId = userIdInput.value.trim()
     const res = await api.getRewardRecords(payload)
-    if (res.errCode !== 0) throw new Error(res.errMsg || '奖励记录加载失败')
+    if (res.errCode !== 0) throw new Error(res.errMsg || '任务记录加载失败')
     const data = res.data || {}
     const rows = data.list || []
     list.value = offset === 0 ? rows : [...list.value, ...rows]
@@ -171,11 +152,6 @@ function goLogin() {
   goAdminLogin()
 }
 
-function sourceLabel(source) {
-  if (source === 'route') return '路线'
-  return '任务'
-}
-
 function formatTime(ts) {
   if (!ts) return '--'
   const d = new Date(ts)
@@ -185,11 +161,11 @@ function formatTime(ts) {
 </script>
 
 <style>
-.rewards-page { padding: 24rpx; }
+.task-records-page { padding: 24rpx; }
 
 .summary-row {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr;
+  grid-template-columns: 1.4fr 1fr;
   gap: 16rpx;
   margin-bottom: 20rpx;
 }
@@ -228,28 +204,6 @@ function formatTime(ts) {
   display: block;
   font-size: 20rpx;
   margin-top: 6rpx;
-}
-
-.filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12rpx;
-  margin-bottom: 16rpx;
-}
-
-.filter-chip {
-  background: #fff;
-  border: 1rpx solid #d9e2dc;
-  border-radius: 999rpx;
-  color: #4a5b54;
-  font-size: 24rpx;
-  padding: 8rpx 22rpx;
-}
-
-.filter-chip.active {
-  background: #2ecc71;
-  border-color: #2ecc71;
-  color: #fff;
 }
 
 .search-bar {
@@ -323,7 +277,7 @@ function formatTime(ts) {
   text-align: center;
 }
 
-.reward-card {
+.record-card {
   background: #fff;
   border-radius: 14rpx;
   margin-bottom: 16rpx;
@@ -365,24 +319,10 @@ function formatTime(ts) {
   white-space: nowrap;
 }
 
-.status-pill.pending {
-  background: #fff7e6;
-  color: #d48806;
-}
-
-.status-pill.claimed {
+.status-pill,
+.source-pill {
   background: #e6f9ed;
   color: #1f7a45;
-}
-
-.source-pill.route {
-  background: #eaf3ff;
-  color: #1677ff;
-}
-
-.source-pill.task {
-  background: #eef9f2;
-  color: #2e9f5f;
 }
 
 .source-title {

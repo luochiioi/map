@@ -16,6 +16,9 @@
       <view class="quick-chip" @click="goRewards">
         <text class="quick-chip-text">奖励记录</text>
       </view>
+      <view class="quick-chip" @click="goTaskRecords">
+        <text class="quick-chip-text">任务记录</text>
+      </view>
       <view class="quick-chip" @click="goDashboard">
         <text class="quick-chip-text">📊 同步诊断</text>
       </view>
@@ -142,6 +145,10 @@ function goAudit() {
 
 function goRewards() {
   uni.navigateTo({ url: '/pages/rewards/index' })
+}
+
+function goTaskRecords() {
+  uni.navigateTo({ url: '/pages/task-records/index' })
 }
 
 // "同步诊断" 与 "最近打卡" 都活在 dashboard。tabBar 切回去比新建独立页便宜，

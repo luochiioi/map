@@ -674,8 +674,14 @@ module.exports = {
   async upsertTask(data) {
     try {
       const now = Date.now()
-      const doc = buildTaskUpsertDoc(data, this.auth.uid, now)
       const targetId = data && data._id ? String(data._id) : ''
+      let existingTasksForId = null
+      const rawId = String((data && data.id) || '').trim()
+      if (!targetId && rawId.length === 0) {
+        const tasksRes = await colTasks.field({ id: true }).get()
+        existingTasksForId = tasksRes.data || []
+      }
+      const doc = buildTaskUpsertDoc(data, this.auth.uid, now, existingTasksForId)
       if (targetId) {
         await colTasks.doc(targetId).update(doc)
         return ok({ _id: targetId, task: doc }, '更新成功')

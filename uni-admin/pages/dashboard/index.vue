@@ -63,6 +63,7 @@
         <view class="section-actions">
           <text class="section-action" @click="goToAudit">审计日志</text>
           <text class="section-action" @click="goToRewards">奖励记录</text>
+          <text class="section-action" @click="goToTaskRecords">任务记录</text>
           <text class="section-action" @click="goToCheckins">查看全部 ›</text>
         </view>
       </view>
@@ -164,6 +165,10 @@ function goToAudit() {
 
 function goToRewards() {
   uni.navigateTo({ url: '/pages/rewards/index' })
+}
+
+function goToTaskRecords() {
+  uni.navigateTo({ url: '/pages/task-records/index' })
 }
 </script>
 

@@ -48,7 +48,10 @@
     <view v-if="editing" class="modal-mask" @click="closeEdit">
       <view class="modal-box" @click.stop>
         <text class="modal-title">{{ editing._id ? '编辑任务' : '新增任务' }}</text>
-        <input class="modal-input" v-model="editForm.id" placeholder="任务 ID，例如 task_007" />
+        <view class="id-hint">
+          <text class="id-hint-label">任务 ID</text>
+          <text class="id-hint-value">{{ editing._id ? editForm.id : '保存时自动生成' }}</text>
+        </view>
         <input class="modal-input" v-model="editForm.name" placeholder="任务名称" />
         <textarea class="modal-textarea" v-model="editForm.description" placeholder="任务描述（可选）" />
         <input class="modal-input" type="number" v-model="editForm.targetMarkerId" placeholder="目标打卡点 ID" />
@@ -189,8 +192,8 @@ function closeEdit() {
 
 async function saveTask() {
   if (!editing.value) return
-  if (!editForm.value.id.trim() || !editForm.value.name.trim()) {
-    uni.showToast({ title: '请填写任务 ID 和名称', icon: 'none' })
+  if (!editForm.value.name.trim()) {
+    uni.showToast({ title: '请填写任务名称', icon: 'none' })
     return
   }
   if (!editForm.value.targetMarkerId) {
@@ -200,7 +203,7 @@ async function saveTask() {
   try {
     const payload = {
       _id: editing.value._id || '',
-      id: editForm.value.id,
+      id: editing.value._id ? editForm.value.id : '',
       name: editForm.value.name,
       description: editForm.value.description,
       targetMarkerId: Number(editForm.value.targetMarkerId),
@@ -394,6 +397,27 @@ async function toggleStatus(t) {
   margin-bottom: 16rpx;
   width: 100%;
   box-sizing: border-box;
+}
+
+.id-hint {
+  background: #f7f8fa;
+  border-radius: 8rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 16rpx;
+  display: flex;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.id-hint-label {
+  color: #666;
+  font-size: 24rpx;
+}
+
+.id-hint-value {
+  color: #123322;
+  font-size: 24rpx;
+  font-weight: 600;
 }
 
 .modal-textarea {
