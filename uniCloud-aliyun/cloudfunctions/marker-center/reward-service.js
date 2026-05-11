@@ -73,9 +73,110 @@ function enrichRewardWithSource(reward, routes, tasks) {
   }
 }
 
+function rewardSourceType(row) {
+  if (row == null) return 'task'
+  return row.source === 'route' ? 'route' : 'task'
+}
+
+function rewardPointsOf(row) {
+  if (row == null) return 0
+  const stored = n(row.rewardPoints)
+  if (stored != null && stored > 0) return Math.floor(stored)
+  return parseRewardPoints(row.reward)
+}
+
+function rewardIssuedAt(row) {
+  if (row == null) return 0
+  const claimed = n(row.claimedAt)
+  if (claimed != null && claimed > 0) return claimed
+  const earned = n(row.earnedAt)
+  return earned != null ? earned : 0
+}
+
+// task rewards count as issued at earnedAt (auto-issued, legacy rows without
+// source are treated as task too). route rewards only count as issued once
+// rewardClaimed === true, using claimedAt as the issuance timestamp.
+function rewardClaimedState(row) {
+  const type = rewardSourceType(row)
+  if (type === 'task') {
+    return { issued: true, issuedAt: rewardIssuedAt(row) }
+  }
+  if (row != null && row.rewardClaimed === true) {
+    return { issued: true, issuedAt: rewardIssuedAt(row) }
+  }
+  return { issued: false, issuedAt: null }
+}
+
+function buildPointsSummary(rewards) {
+  const list = Array.isArray(rewards) ? rewards : []
+  let totalEarnedPoints = 0
+  let taskIssuedPoints = 0
+  let routeIssuedPoints = 0
+  let pendingRoutePoints = 0
+
+  for (const row of list) {
+    const points = rewardPointsOf(row)
+    if (points <= 0) continue
+    totalEarnedPoints += points
+    const type = rewardSourceType(row)
+    const state = rewardClaimedState(row)
+    if (type === 'task') {
+      taskIssuedPoints += points
+      continue
+    }
+    if (state.issued) {
+      routeIssuedPoints += points
+    } else {
+      pendingRoutePoints += points
+    }
+  }
+
+  return {
+    totalEarnedPoints,
+    issuedPoints: taskIssuedPoints + routeIssuedPoints,
+    pendingRoutePoints,
+    taskIssuedPoints,
+    routeIssuedPoints
+  }
+}
+
+function buildPointsLedger(rewards) {
+  const list = Array.isArray(rewards) ? rewards : []
+  const rows = list.map(row => {
+    const type = rewardSourceType(row)
+    const state = rewardClaimedState(row)
+    const points = rewardPointsOf(row)
+    const titleFallback = type === 'route' ? (row && row.routeName) : (row && row.taskName)
+    return {
+      rewardId: s(row && row._id),
+      source: type,
+      points,
+      status: state.issued ? 'issued' : 'pending',
+      earnedAt: n(row && row.earnedAt) || 0,
+      issuedAt: state.issuedAt,
+      taskId: type === 'task' ? s(row && row.taskId) : '',
+      routeId: type === 'route' ? n(row && row.routeId) : null,
+      title: s((row && row.sourceTitle) || titleFallback || '')
+    }
+  })
+
+  rows.sort((a, b) => {
+    if (a.status !== b.status) return a.status === 'issued' ? -1 : 1
+    const aKey = a.status === 'issued' ? (a.issuedAt || 0) : a.earnedAt
+    const bKey = b.status === 'issued' ? (b.issuedAt || 0) : b.earnedAt
+    return bKey - aKey
+  })
+
+  return rows
+}
+
 module.exports = {
   buildClaimedReward,
   buildTaskRewardEntry,
   enrichRewardWithSource,
-  parseRewardPoints
+  parseRewardPoints,
+  rewardSourceType,
+  rewardClaimedState,
+  buildPointsSummary,
+  buildPointsLedger
 }
