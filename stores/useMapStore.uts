@@ -60,23 +60,11 @@ export function requestFocusById(markerId: number, lat: number, lng: number, tit
 
 export function requestFocus(marker: CheckinMarker): void { requestFocusByMarker(marker) }
 
-export function returnToIndexForFocus(): void {
-  const pages = getCurrentPages()
-  let indexPos = -1
-  for (let i = pages.length - 1; i >= 0; i--) {
-    const page = pages[i] as UTSJSONObject
-    const route = page["route"] as string | null
-    if (route == 'pages/index/index') {
-      indexPos = i
-      break
-    }
-  }
-  if (indexPos >= 0) {
-    const delta = pages.length - 1 - indexPos
-    if (delta > 0) {
-      uni.navigateBack({ delta: delta })
-      return
-    }
+// 调用方按栈深显式传 delta；0 走 reLaunch 兜底。见 UTS_COMPILE_PITFALLS。
+export function returnToIndexForFocus(deltaToIndex: number): void {
+  if (deltaToIndex > 0) {
+    uni.navigateBack({ delta: deltaToIndex })
+    return
   }
   uni.reLaunch({ url: '/pages/index/index' })
 }

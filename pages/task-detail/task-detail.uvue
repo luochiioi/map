@@ -86,7 +86,8 @@ function goToMarker(): void {
   const m = linkedMarker.value
   if (m == null) return
   requestFocusByMarker(m)
-  returnToIndexForFocus()
+  // 首页 -> 任务列表 -> 任务详情，栈深 2
+  returnToIndexForFocus(2)
 }
 
 // UTS 5.07：模板不能直接调 import 的独立函数，wrap 进 setup 作用域

@@ -9,23 +9,30 @@ function read(relPath) {
   return fs.readFileSync(path.join(root, relPath), 'utf8')
 }
 
-test('focus navigation prefers existing index page instead of unconditional reLaunch', () => {
+test('focus navigation uses explicit delta and does not introspect getCurrentPages', () => {
   const store = read('stores/useMapStore.uts')
-  assert.match(store, /export function returnToIndexForFocus\(\): void/)
-  assert.match(store, /getCurrentPages\(\)/)
-  assert.match(store, /uni\.navigateBack\(\{ delta: delta \}\)/)
+  assert.match(store, /export function returnToIndexForFocus\(deltaToIndex: number\): void/)
+  assert.equal(store.includes('getCurrentPages('), false)
+  assert.equal(store.includes('as UTSJSONObject'), false)
+  assert.equal(store.includes('page["route"]'), false)
+  assert.match(store, /uni\.navigateBack\(\{ delta: deltaToIndex \}\)/)
   assert.match(store, /uni\.reLaunch\(\{ url: '\/pages\/index\/index' \}\)/)
+})
 
-  ;[
-    'pages/my-checkins/my-checkins.uvue',
-    'pages/route-detail/route-detail.uvue',
-    'pages/tasks/tasks.uvue',
-    'pages/task-detail/task-detail.uvue'
-  ].forEach(relPath => {
-    const source = read(relPath)
-    assert.match(source, /returnToIndexForFocus\(\)/, relPath)
-    assert.equal(source.includes("uni.reLaunch({ url: '/pages/index/index' })"), false, relPath)
-  })
+test('focus navigation callers pass explicit delta', () => {
+  const expectations = [
+    { file: 'pages/my-checkins/my-checkins.uvue', delta: 1 },
+    { file: 'pages/tasks/tasks.uvue', delta: 1 },
+    { file: 'pages/task-detail/task-detail.uvue', delta: 2 },
+    { file: 'pages/route-detail/route-detail.uvue', delta: 2 }
+  ]
+  for (const { file, delta } of expectations) {
+    const source = read(file)
+    const pattern = new RegExp(`returnToIndexForFocus\\(${delta}\\)`)
+    assert.match(source, pattern, file)
+    assert.equal(source.includes('returnToIndexForFocus()'), false, file)
+    assert.equal(source.includes("uni.reLaunch({ url: '/pages/index/index' })"), false, file)
+  }
 })
 
 test('app launch does not run a second marker sync before index page owns sync', () => {

@@ -137,7 +137,8 @@ function goMarker(step: RouteStep): void {
     return
   }
   requestFocusByMarker(local!!)
-  returnToIndexForFocus()
+  // 首页 -> 路线列表 -> 路线详情，栈深 2
+  returnToIndexForFocus(2)
 }
 
 // PITFALLS §规则 16：onLoad / onShow 用 uni-app x 全局钩子，不要从 vue import

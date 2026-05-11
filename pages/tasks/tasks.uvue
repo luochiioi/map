@@ -157,7 +157,8 @@ function setFilterDone(): void { activeFilter.value = 'done' }
 function showTasks(): void { activeSection.value = 'tasks' }
 function showBadges(): void { activeSection.value = 'badges' }
 function showSpots(): void { activeSection.value = 'spots' }
-function goFocus(item: CheckinMarker): void { requestFocusByMarker(item); returnToIndexForFocus() }
+// 任务页从首页 navigateTo 进入，栈深 1
+function goFocus(item: CheckinMarker): void { requestFocusByMarker(item); returnToIndexForFocus(1) }
 
 async function doDeleteMarker(markerId: number): Promise<void> {
   await deleteMarker(markerId)

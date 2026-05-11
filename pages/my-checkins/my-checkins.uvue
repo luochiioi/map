@@ -135,7 +135,8 @@ function goLogin(): void {
 function goFocus(entry: MyCheckinEntry): void {
   loadMarkers()
   requestFocusById(entry.markerId, entry.latitude, entry.longitude, entry.markerTitle)
-  returnToIndexForFocus()
+  // 我的打卡列表是从首页 navigateTo 进来的，栈深 1
+  returnToIndexForFocus(1)
 }
 
 function previewPhoto(entry: MyCheckinEntry): void {
