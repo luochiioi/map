@@ -15,7 +15,13 @@ const {
   buildUserRouteEntry,
   buildRouteRewardEntry
 } = require('./route-completion')
-const { buildClaimedReward, buildTaskRewardEntry, enrichRewardWithSource } = require('./reward-service')
+const {
+  buildClaimedReward,
+  buildTaskRewardEntry,
+  enrichRewardWithSource,
+  buildPointsSummary,
+  buildPointsLedger
+} = require('./reward-service')
 const { buildAuditLogEntry } = require('./audit-service')
 
 // 拉当前 uid 在所有 marker 中的"已打卡 markerId 集合"。
@@ -381,6 +387,25 @@ module.exports = {
     return {
       errCode: 0,
       data: rewards.map(reward => enrichRewardWithSource(reward, routes, tasks))
+    }
+  },
+
+  async getPointsSummary() {
+    if (!this.auth.uid) return { errCode: -1, errMsg: '请先登录' }
+    const [rewardRes, routesRes, tasksRes] = await Promise.all([
+      colRewards.where({ userId: this.auth.uid }).orderBy('earnedAt', 'desc').get(),
+      colRoutes.where({ status: 'active' }).field({ id: true, name: true }).get(),
+      colTaskDefs.where({ status: 'active' }).field({ id: true, name: true }).get()
+    ])
+    const rewards = (rewardRes.data || []).map(reward => enrichRewardWithSource(reward, routesRes.data || [], tasksRes.data || []))
+    const summary = buildPointsSummary(rewards)
+    const ledger = buildPointsLedger(rewards)
+    return {
+      errCode: 0,
+      data: {
+        ...summary,
+        ledger
+      }
     }
   },
 

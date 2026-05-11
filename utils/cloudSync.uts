@@ -419,6 +419,49 @@ export async function claimReward(rewardId: string): Promise<boolean> {
   }
 }
 
+// ===== Points wallet summary + ledger =====
+// 与 marker-center.reward-service.buildPointsSummary / buildPointsLedger 同语义。
+
+export type PointsLedgerEntry = {
+  rewardId: string
+  source: string
+  points: number
+  status: string
+  earnedAt: number
+  issuedAt: number | null
+  taskId: string
+  routeId: number | null
+  title: string
+}
+
+export type PointsSummary = {
+  totalEarnedPoints: number
+  issuedPoints: number
+  pendingRoutePoints: number
+  taskIssuedPoints: number
+  routeIssuedPoints: number
+  ledger: PointsLedgerEntry[]
+}
+
+export async function pullPointsSummary(): Promise<PointsSummary | null> {
+  try {
+    const markerApi = uniCloud.importObject('marker-center', { customUI: true } as UniCloudImportObjectOptions)
+    const res = await markerApi.getPointsSummary() as UTSJSONObject
+    const errCode = res["errCode"] as number
+    if (errCode !== 0) return null
+    const raw = res["data"]
+    if (raw == null) return null
+    // 不能直接把云端嵌套对象 as PointsSummary（5.07 真机会 ClassCastException），
+    // 必须先 stringify 再按目标类型 parse，让运行时按声明类型重建结构。
+    const jsonStr = JSON.stringify(raw)
+    const parsed = JSON.parse<PointsSummary>(jsonStr)
+    return parsed
+  } catch (e) {
+    console.log('[cloudSync] pullPointsSummary failed', e)
+    return null
+  }
+}
+
 // ===== Pull active themed routes with current uid progress =====
 
 export type RouteProgress = {
