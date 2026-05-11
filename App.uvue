@@ -3,7 +3,7 @@
   import type { SafeArea } from '@/store/index.uts'
   import { clearUserInfo, refreshUserInfo } from '@/user/index.uts'
   import type { UserInfo } from '@/user/index.uts'
-  import { flushSyncQueue, syncMarkers, pendingCount } from '@/utils/cloudSync'
+  import { flushSyncQueue, pendingCount } from '@/utils/cloudSync'
 
   async function doVerifyAndSync(): Promise<void> {
     try {
@@ -14,7 +14,6 @@
         const userId = data["userId"] as string
         const userName = data["userName"] as string
         refreshUserInfo({ userId, userName } as UserInfo)
-        syncMarkers(userId)
       }
       console.log('Token 验证通过')
     } catch (e) {

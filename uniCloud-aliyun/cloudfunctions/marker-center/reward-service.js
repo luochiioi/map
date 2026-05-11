@@ -33,7 +33,8 @@ function buildTaskRewardEntry(userId, task, now) {
     rewardPoints: parseRewardPoints(reward),
     source: 'task',
     earnedAt: Number(now),
-    rewardClaimed: false
+    rewardClaimed: true,
+    claimedAt: Number(now)
   }
 }
 
@@ -65,8 +66,10 @@ function enrichRewardWithSource(reward, routes, tasks) {
     routeName,
     taskName,
     sourceTitle: sourceType === 'route' ? routeName : taskName,
-    rewardClaimed: row.rewardClaimed === true,
-    claimedAt: row.claimedAt != null ? Number(row.claimedAt) : null
+    rewardClaimed: sourceType === 'task' ? true : row.rewardClaimed === true,
+    claimedAt: sourceType === 'task'
+      ? Number(row.claimedAt || row.earnedAt || 0)
+      : row.claimedAt != null ? Number(row.claimedAt) : null
   }
 }
 

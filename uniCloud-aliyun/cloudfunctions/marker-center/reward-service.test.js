@@ -21,7 +21,7 @@ test('parseRewardPoints extracts integer points from reward text', () => {
   assert.equal(parseRewardPoints('no numeric reward'), 0)
 })
 
-test('buildTaskRewardEntry stores normalized rewardPoints for new task rewards', () => {
+test('buildTaskRewardEntry stores normalized rewardPoints and auto-claims task rewards', () => {
   assert.deepEqual(buildTaskRewardEntry('uid-1', {
     id: 'task_001',
     name: 'Palace Explorer',
@@ -34,7 +34,8 @@ test('buildTaskRewardEntry stores normalized rewardPoints for new task rewards',
     rewardPoints: 10,
     source: 'task',
     earnedAt: 1700000000000,
-    rewardClaimed: false
+    rewardClaimed: true,
+    claimedAt: 1700000000000
   })
 })
 
@@ -102,4 +103,19 @@ test('enrichRewardWithSource preserves claim fields from reward row', () => {
 
   assert.equal(row.rewardClaimed, true)
   assert.equal(row.claimedAt, 1800000000000)
+})
+
+test('enrichRewardWithSource treats task rewards as already issued even for legacy pending rows', () => {
+  const reward = {
+    _id: 'rw-7',
+    taskId: 'task_004',
+    reward: '8 points',
+    rewardClaimed: false,
+    earnedAt: 1700000000000
+  }
+  const row = enrichRewardWithSource(reward, [], [{ id: 'task_004', name: 'Auto Task' }])
+
+  assert.equal(row.sourceType, 'task')
+  assert.equal(row.rewardClaimed, true)
+  assert.equal(row.claimedAt, 1700000000000)
 })

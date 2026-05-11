@@ -65,7 +65,7 @@ import type { MyCheckinEntry } from '@/utils/cloudSync'
 import { pullMyCheckins, deleteCloudCheckin } from '@/utils/cloudSync'
 import { state as userState, refreshUserIdFromAuth } from '@/user/index.uts'
 import { loadFromStorage as loadMarkers, syncFromCloud } from '@/stores/useMarkerStore'
-import { requestFocusById } from '@/stores/useMapStore'
+import { requestFocusById, returnToIndexForFocus } from '@/stores/useMapStore'
 import { formatDateTime } from '@/utils/format'
 
 const entries = ref<MyCheckinEntry[]>([] as MyCheckinEntry[])
@@ -135,7 +135,7 @@ function goLogin(): void {
 function goFocus(entry: MyCheckinEntry): void {
   loadMarkers()
   requestFocusById(entry.markerId, entry.latitude, entry.longitude, entry.markerTitle)
-  uni.reLaunch({ url: '/pages/index/index' })
+  returnToIndexForFocus()
 }
 
 function previewPhoto(entry: MyCheckinEntry): void {

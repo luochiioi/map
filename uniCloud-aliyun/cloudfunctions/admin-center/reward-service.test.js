@@ -4,6 +4,7 @@ const test = require('node:test')
 const {
   parseRewardPoints,
   aggregateRewardStatsByUser,
+  filterRewardRecords,
   normalizeRewardRecords
 } = require('./reward-service')
 
@@ -27,12 +28,12 @@ test('aggregateRewardStatsByUser groups points and claim counts per user', () =>
 
   assert.deepEqual(stats.get('uid-1'), {
     totalRewardPoints: 35,
-    claimedRewardPoints: 10,
-    pendingRewardPoints: 25,
+    claimedRewardPoints: 15,
+    pendingRewardPoints: 20,
     routeRewardCount: 1,
     taskRewardCount: 2,
-    claimedCount: 1,
-    pendingCount: 2
+    claimedCount: 2,
+    pendingCount: 1
   })
   assert.deepEqual(stats.get('uid-2'), {
     totalRewardPoints: 12,
@@ -80,6 +81,25 @@ test('normalizeRewardRecords joins user names and exposes claim status', () => {
   assert.equal(rows[1].sourceType, 'task')
   assert.equal(rows[1].sourceTitle, 'Palace')
   assert.equal(rows[1].rewardPoints, 10)
-  assert.equal(rows[1].statusText, '待兑')
-  assert.equal(rows[1].claimedAt, null)
+  assert.equal(rows[1].rewardClaimed, true)
+  assert.equal(rows[1].statusText, rows[0].statusText)
+  assert.equal(rows[1].claimedAt, 1500)
+})
+test('filterRewardRecords treats legacy rows without source as task rewards', () => {
+  const rows = [
+    { _id: 'route-1', userId: 'u1', source: 'route', routeId: 100, rewardClaimed: false },
+    { _id: 'task-1', userId: 'u1', source: 'task', taskId: 'task_001', rewardClaimed: true },
+    { _id: 'task-legacy', userId: 'u1', taskId: 'task_002', rewardClaimed: false },
+    { _id: 'other-user', userId: 'u2', taskId: 'task_003', rewardClaimed: false }
+  ]
+
+  assert.deepEqual(filterRewardRecords(rows, { source: 'task', userId: 'u1' }).map(row => row._id), [
+    'task-1',
+    'task-legacy'
+  ])
+  assert.deepEqual(filterRewardRecords(rows, { source: 'route' }).map(row => row._id), ['route-1'])
+  assert.deepEqual(filterRewardRecords(rows, { status: 'claimed', userId: 'u1' }).map(row => row._id), [
+    'task-1',
+    'task-legacy'
+  ])
 })

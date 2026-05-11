@@ -56,7 +56,7 @@ import { ref, computed } from 'vue'
 import type { RouteWithProgress } from '@/utils/cloudSync'
 import { pullActiveRoutes } from '@/utils/cloudSync'
 import { findById, loadFromStorage as loadMarkers } from '@/stores/useMarkerStore'
-import { requestFocusByMarker } from '@/stores/useMapStore'
+import { requestFocusByMarker, returnToIndexForFocus } from '@/stores/useMapStore'
 import type { CheckinMarker } from '@/types/marker'
 
 type RouteStep = {
@@ -137,7 +137,7 @@ function goMarker(step: RouteStep): void {
     return
   }
   requestFocusByMarker(local!!)
-  uni.reLaunch({ url: '/pages/index/index' })
+  returnToIndexForFocus()
 }
 
 // PITFALLS §规则 16：onLoad / onShow 用 uni-app x 全局钩子，不要从 vue import

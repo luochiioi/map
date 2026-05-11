@@ -82,7 +82,7 @@ import { ref, computed } from 'vue'
 import { markers, checkedMarkers, pendingMarkers, totalCount, doneCount, loadFromStorage as loadMarkers, deleteMarker, findById, findByTitle } from '@/stores/useMarkerStore'
 import { tasks, completedTaskCount, totalTaskCount, loadFromStorage as loadTasks, requestTaskDetail } from '@/stores/useTaskStore'
 import { achievements, unlockedCount } from '@/stores/useAchievementStore'
-import { requestFocusByMarker } from '@/stores/useMapStore'
+import { requestFocusByMarker, returnToIndexForFocus } from '@/stores/useMapStore'
 import type { CheckinMarker } from '@/types/marker'
 import type { Task } from '@/types/task'
 import type { FilterMode } from '@/types/app'
@@ -157,7 +157,7 @@ function setFilterDone(): void { activeFilter.value = 'done' }
 function showTasks(): void { activeSection.value = 'tasks' }
 function showBadges(): void { activeSection.value = 'badges' }
 function showSpots(): void { activeSection.value = 'spots' }
-function goFocus(item: CheckinMarker): void { requestFocusByMarker(item); uni.reLaunch({ url: '/pages/index/index' }) }
+function goFocus(item: CheckinMarker): void { requestFocusByMarker(item); returnToIndexForFocus() }
 
 async function doDeleteMarker(markerId: number): Promise<void> {
   await deleteMarker(markerId)

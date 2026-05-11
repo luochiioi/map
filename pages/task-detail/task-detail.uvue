@@ -36,7 +36,7 @@ import { ref, computed } from 'vue'
 // onLoad 在 uni-app x 中是全局页面生命周期钩子，无需 import
 import { findTaskById, loadFromStorage as loadTasks, pendingTaskDetailId, pendingTaskDetailSnapshot } from '@/stores/useTaskStore'
 import { findById, loadFromStorage as loadMarkers } from '@/stores/useMarkerStore'
-import { requestFocusByMarker } from '@/stores/useMapStore'
+import { requestFocusByMarker, returnToIndexForFocus } from '@/stores/useMapStore'
 import { formatDateTime } from '@/utils/format'
 import type { Task } from '@/types/task'
 import type { CheckinMarker } from '@/types/marker'
@@ -86,7 +86,7 @@ function goToMarker(): void {
   const m = linkedMarker.value
   if (m == null) return
   requestFocusByMarker(m)
-  uni.reLaunch({ url: '/pages/index/index' })
+  returnToIndexForFocus()
 }
 
 // UTS 5.07：模板不能直接调 import 的独立函数，wrap 进 setup 作用域
