@@ -3937,6 +3937,15 @@ Expected hits remain only in pre-existing `route-detail` comments that document 
 - `node --check` sweep over `uniCloud-aliyun/cloudfunctions/**/index.obj.js` and `*-service.js`: **15 files parsed**.
 - UTS forbidden-token grep over `pages,utils,stores,types,components`: only comment-line hits (see notes above); no active-code tokens introduced.
 
+### Roadmap from P6 (decided 2026-05-14)
+
+See `docs/superpowers/plans/2026-05-14-roadmap-p6-to-p9.md`. The locked order is:
+
+1. **P6** — Social + Leaderboard + Push. Full plan: `docs/superpowers/plans/2026-05-14-p6-social-leaderboard-push.md`.
+2. **P7** — Profile + Achievement v2 + City Packs. Plan written at start of P7.
+3. **P8** — UI Overhaul (App + Admin), **must** use design / frontend skills (`frontend-design`, `ui-ux-pro-max:ui-ux-pro-max`, `frontend-patterns`, `liquid-glass-design`, `a11y-architect`, `e2e-runner`). Plan written at start of P8.
+4. **P9** — Offline + Undo + WeChat hardening.
+
 ### Next-session AI prompt
 
-Continue development in `C:\Users\Raymond\Desktop\feinibuke\map_new` for the uni-app x / UTS 5.07 project. First read and obey `uniapp_x_map_checkin_prompt.md`, `UTS_COMPILE_PITFALLS.md`, and the most recent plan file under `docs/superpowers/plans/`. P5.5 landed on branch `codex/p1-marker-json-boundary` with commits `39a92ee 29bc59c b96f0d5 7ed5bf1 4294a93`. Decide the next plan in conversation; do not auto-pick. Local-only files that must stay untracked: `.hbuilderx/launch.json`, `uni-admin/.hbuilderx/`, `uniCloud-aliyun/cloudfunctions/admin-center/admin-center.param.js`. App has no tabBar — never `switchTab`. Native map `Marker.id` must use SDK-safe small positive integers. UTS 5.07 forbids `Number(` / `Number.` and casting `getCurrentPages()` entries to `UTSJSONObject`. Cross cloud boundaries with `JSON.stringify(raw) -> JSON.parse<T>(...)`.
+Continue development in `C:\Users\Raymond\Desktop\feinibuke\map_new` for the uni-app x / UTS 5.07 project. First read and obey `uniapp_x_map_checkin_prompt.md`, `UTS_COMPILE_PITFALLS.md`, and the most recent plan file under `docs/superpowers/plans/`. P5.5 landed on branch `codex/p1-marker-json-boundary` with commits `39a92ee 29bc59c b96f0d5 7ed5bf1 4294a93 2e83e3a 5ab21f2` (already pushed to `origin/codex/p1-marker-json-boundary`). The next iteration is **P6 — Social + Leaderboard + Push**; read `docs/superpowers/plans/2026-05-14-p6-social-leaderboard-push.md` before touching code. Local-only files that must stay untracked: `.hbuilderx/launch.json`, `uni-admin/.hbuilderx/`, `uniCloud-aliyun/cloudfunctions/admin-center/admin-center.param.js`. App has no tabBar — never `switchTab`. Native map `Marker.id` must use SDK-safe small positive integers. UTS 5.07 forbids `Number(` / `Number.` and casting `getCurrentPages()` entries to `UTSJSONObject`. Cross cloud boundaries with `JSON.stringify(raw) -> JSON.parse<T>(...)`.
