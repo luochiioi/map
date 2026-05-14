@@ -118,9 +118,13 @@ async function doAddFriend(): Promise<void> {
   try {
     const result = await requestFriend(uid)
     if (result != null) {
+      // P8 B4: 5 类分支文案由服务端 errMsg 区分,前端不再用 autoAccepted 二选一。
+      // 已是好友 / dup pending 不算"请求成功",图标退化为 none 提示用户。
+      const msg = result.message.length > 0 ? result.message : '请求已发送'
+      const isNewRequest = result.status == 'pending'
       uni.showToast({
-        title: result.autoAccepted ? '已自动成为好友' : '请求已发送',
-        icon: 'success'
+        title: msg,
+        icon: isNewRequest ? 'success' : 'none'
       })
       addUid.value = ''
       reload()
@@ -129,7 +133,7 @@ async function doAddFriend(): Promise<void> {
     }
   } catch (e) {
     // friendCloud.requestFriend errCode != 0 时 throw new Error(msg);
-    // 这里把 errMsg 提取出来给用户看(目标用户不存在/对方已是好友等)
+    // 这里把 errMsg 提取出来给用户看(目标用户不存在 / 不能加自己 等)
     const err = e as Error
     const msg = err.message
     uni.showToast({ title: msg.length > 0 ? msg : '请求失败', icon: 'none' })

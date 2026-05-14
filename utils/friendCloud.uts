@@ -30,10 +30,13 @@ export type FriendBuckets = {
   outgoing: FriendshipRow[]
 }
 
+// P8 B4: message 透传服务端 errMsg。前端 toast 直接用,不再以 autoAccepted
+// 做"二选一"。autoAccepted 保留兼容,但仅作为调试/分析维度,不参与 UI 决策。
 export type FriendRequestResult = {
   friendshipId: string
   status: string
   autoAccepted: boolean
+  message: string
 }
 
 // PITFALLS §法则 12 同款：`function markerApi(): any` 会丢失方法类型，UTS 5.07
@@ -97,7 +100,16 @@ export async function requestFriend(targetUid: string): Promise<FriendRequestRes
   }
   const raw = res['data']
   if (raw == null) return null
-  const parsed = JSON.parse<FriendRequestResult>(JSON.stringify(raw))
+  // P8 B4: 把服务端 errMsg 注入到 raw 后再 parse,FriendRequestResult.message
+  // 是 non-optional string,缺字段会让 UTS 5.07 严格 parse 返 null。
+  const rawObj = raw as UTSJSONObject
+  const rawMsg = res['errMsg']
+  rawObj['message'] = rawMsg != null ? rawMsg as string : ''
+  // 服务端不返 autoAccepted 的分支(L514/L531/L534/L538/L544 大多数)统一默认 false。
+  if (rawObj['autoAccepted'] == null) {
+    rawObj['autoAccepted'] = false
+  }
+  const parsed = JSON.parse<FriendRequestResult>(JSON.stringify(rawObj))
   return parsed
 }
 

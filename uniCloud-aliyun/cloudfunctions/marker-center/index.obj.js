@@ -521,7 +521,8 @@ module.exports = {
     if (incomingRes.data.length) {
       const incoming = incomingRes.data[0]
       if (incoming.status === 'accepted') {
-        return { errCode: 0, errMsg: '已是好友', data: { friendshipId: incoming._id, status: 'accepted', autoAccepted: false } }
+        // P8 B4: 5 类反馈文案细化 — 既有 accepted(对方早已是好友)。
+        return { errCode: 0, errMsg: '你们已是好友(无需重复发送)', data: { friendshipId: incoming._id, status: 'accepted', autoAccepted: false } }
       }
       if (incoming.status === 'pending') {
         const flipped = applyFriendDecision(incoming, 'accept', now)
@@ -529,7 +530,8 @@ module.exports = {
         await colFriendships.add(buildMirrorRow(flipped, now))
         // P8 B6: 通知对方"对方接受了你的好友请求"。auto-accept 路径同样通过消息中心反馈。
         emitNotification('friend.accepted', targetUid, fromPayload)
-        return { errCode: 0, errMsg: '已自动接受对方请求', data: { friendshipId: incoming._id, status: 'accepted', autoAccepted: true } }
+        // P8 B4: auto-accept 文案改"对方此前已发起请求,你们已成为好友"避免与"请求已发送"混淆。
+        return { errCode: 0, errMsg: '对方此前已发起请求,你们已成为好友', data: { friendshipId: incoming._id, status: 'accepted', autoAccepted: true } }
       }
       // rejected: fall through and create a fresh pending row from me.
     }
@@ -541,16 +543,18 @@ module.exports = {
       const row = existingRes.data[0]
       if (row.status === 'pending') {
         // 既有 pending 不重发通知,避免对方刷屏。
-        return { errCode: 0, errMsg: '请求已发送', data: { friendshipId: row._id, status: 'pending' } }
+        // P8 B4: dup pending 文案区分于 fresh,提示"此前已存在记录"。
+        return { errCode: 0, errMsg: '请求已发送(此前已存在记录)', data: { friendshipId: row._id, status: 'pending' } }
       }
       if (row.status === 'accepted') {
-        return { errCode: 0, errMsg: '已是好友', data: { friendshipId: row._id, status: 'accepted' } }
+        // P8 B4: 已是好友 — 不应再重复创建请求,客户端 toast 直接展示。
+        return { errCode: 0, errMsg: '你们已是好友(无需重复发送)', data: { friendshipId: row._id, status: 'accepted' } }
       }
       // rejected → resurrect as pending so users can retry after a refusal.
       await colFriendships.doc(row._id).update({ status: 'pending', updatedAt: now, requestedBy: String(this.auth.uid) })
       // P8 B6: resurrect 路径也是一次新的"对方收到好友请求"事件。
       emitNotification('friend.requested', targetUid, fromPayload)
-      return { errCode: 0, errMsg: '请求已发送', data: { friendshipId: row._id, status: 'pending' } }
+      return { errCode: 0, errMsg: '请求已发送,等待对方响应', data: { friendshipId: row._id, status: 'pending' } }
     }
 
     const fresh = buildFriendRequest(this.auth.uid, targetUid, now)
@@ -558,7 +562,7 @@ module.exports = {
     const addRes = await colFriendships.add(fresh)
     // P8 B6: fresh pending,服务端必须发 'friend.requested',否则被请求方消息中心收不到通知。
     emitNotification('friend.requested', targetUid, fromPayload)
-    return { errCode: 0, errMsg: '请求已发送', data: { friendshipId: addRes.id, status: 'pending' } }
+    return { errCode: 0, errMsg: '请求已发送,等待对方响应', data: { friendshipId: addRes.id, status: 'pending' } }
   },
 
   async respondFriend(data) {
