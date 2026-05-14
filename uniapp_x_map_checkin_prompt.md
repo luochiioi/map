@@ -3979,3 +3979,26 @@ Working norms:
 - Every cloud-side service change is preceded by a pure-helper test.
 - App has no tabBar — never `switchTab`. Native map `Marker.id` stays SDK-safe. UTS 5.07 forbids `Number(` / `Number.` and `getCurrentPages()` cast to `UTSJSONObject`. Cross cloud: `JSON.stringify(raw) -> JSON.parse<T>(...)`.
 - Never commit: `.hbuilderx/launch.json`, `uni-admin/.hbuilderx/`, `uniCloud-aliyun/cloudfunctions/admin-center/admin-center.param.js`.
+
+---
+
+## 2026-05-14 P7 真机验收补丁（plan 已写）
+
+P6 编译通过、真机能跑后用户反馈三类阻塞型 UX 缺口：
+1. **找不到自己的 userId** —— 加好友依赖业务后台手查，普通用户做不到
+2. **加好友按钮无响应** —— `friends.uvue:doAddFriend` 没 try/catch 包 `requestFriend`，errCode!=0 抛出的异常静默吞掉
+3. **排行榜显示错乱** —— `🥇🥈🥉` Android 缺字形渲染为方框、缺头像、"积分 XX"副标题与右侧数值冲突
+
+完整 P7 plan: `docs/superpowers/plans/2026-05-14-p7-profile-friends-leaderboard-polish.md`，分 8 个 task：
+- Task 0 后端：`marker-center.whoami` 返回 nickname/avatar；新增 `user-center.updateProfile`
+- Task 1 App: `UserInfo` 加 avatar 字段
+- Task 2 新页 `pages/profile/profile.uvue`（我的主页）
+- Task 3 新页 `pages/profile-edit/profile-edit.uvue`（编辑昵称/密码/头像）
+- Task 4 首页 auth chip 直跳 profile（删 actionSheet）
+- Task 5 加好友 try/catch + 自检
+- Task 6 排行榜 rank 徽章 + 头像 + 字段布局重做
+- Task 7 PITFALLS §规则 49 emoji 渲染禁忌（本轮已落档）
+
+P7 实施时仍受 P6 收尾的 `UTS_COMPILE_PITFALLS.md §41-§48` 八条 5.07 编译规则约束。新增 §规则 49 见 PITFALLS 末尾"十四"章。
+
+注意：上面 3975 行的"Next iteration is P7 — Profile + Achievement v2 + City Packs"是 P6 收尾时的旧路线图条目（参 `docs/superpowers/plans/2026-05-14-roadmap-p6-to-p9.md`）。真机验收后 P7 范围**收窄**为"真机阻塞型 UX 缺口"，achievements v2 / city packs 延期到 P8。本节为权威。

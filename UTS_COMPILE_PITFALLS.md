@@ -1746,3 +1746,66 @@ error: Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable
 | `2a0d3bc` | friends/notifications async-void + leaderboard 函数顺序 | §44, §45 |
 | `b8c5074` | leaderboard.uvue 模板 !! 断言 | §48 |
 | `9421325` | notifications.uvue union → DisplayItem 扁平化 | §43 |
+
+---
+
+## 十四、P7 预备规则（2026-05-14，UI 渲染层）
+
+P7 真机验收发现一类**非 UTS 编译错误、但严重影响 UX**的问题，先立档为规则 49。后续 P7 实施代码时若再踩坑，规则 50+ 在此追加。
+
+### 规则 49：Android 真机部分 emoji 渲染失败 —— 不要把 emoji 当 UI 核心元素
+
+**真机现象**：P6 排行榜 `🥇 🥈 🥉` 三个奖牌 emoji 在用户的 Android 测试机上渲染为"长方形 + ×"（缺字形 fallback），只有第 4 名以后的纯数字"4"能正常显示。同型隐患可能波及：`📍 🎯 🎁 📷` 等表意 emoji。
+
+**为什么发生**：Android 内置字体 (`Roboto` / `Noto Sans`) 不包含全部 Unicode emoji 字形；不同厂商 ROM (MIUI / OneUI / EMUI 等) 自带 emoji 字体覆盖率参差。uni-app x 渲染走原生 `<TextView>`，缺字形时显示系统默认占位符（方框 / 方框带 ×）。
+
+**反模式**：把排名、状态、类别等**核心信息**靠 emoji 表达。
+```ts
+function rankText(rank: number): string {
+  if (rank == 1) return '🥇'    // ❌ 部分机型显示为方框
+  if (rank == 2) return '🥈'
+  if (rank == 3) return '🥉'
+  return rank.toString()
+}
+```
+
+**正解**：用 **CSS 徽章** / **数字 + 颜色** / **本地 image 资源** 代替核心信息的 emoji。
+```ts
+function rankText(rank: number): string {
+  return rank.toString()   // 永远返回数字
+}
+function rankClass(rank: number): string {
+  if (rank == 1) return 'rank-badge rank-gold'
+  if (rank == 2) return 'rank-badge rank-silver'
+  if (rank == 3) return 'rank-badge rank-bronze'
+  return 'rank-badge rank-normal'
+}
+```
+
+```css
+.rank-badge { width: 56rpx; height: 56rpx; border-radius: 28rpx;
+              display: flex; align-items: center; justify-content: center; }
+.rank-gold   { background-color: #f7c548; }
+.rank-silver { background-color: #c0c0c0; }
+.rank-bronze { background-color: #cd7f32; }
+.rank-normal { background-color: #f0f2f5; }
+```
+
+**已知能稳渲染的 emoji（前期实测过，可继续用作装饰）**：
+- 🔔（通知铃铛，notifications.uvue + index.uvue 角标已实测正常）
+- 👤（友邻头像 fallback，notifications.uvue:iconFor 实测正常）
+- 🗺️（路线类通知图标，实测正常）
+- 📢（系统广播，实测正常）
+- ＋ －（半角加减号，map br-stack 缩放按钮实测正常）
+
+**已知不稳的 emoji**：
+- 🥇 🥈 🥉（P6 排行榜踩坑实证）
+- 📷 📍 🎯 🎁（推测，未验证）
+
+**审计**：
+- grep `[\u{1F300}-\u{1FFFF}]` 在 `.uvue` / `.uts` 里找所有 emoji 字符（PowerShell 用 `Select-String -Pattern '[^ -￿]'`）
+- 逐个评估"它是装饰还是信息"。装饰可保留；信息必改 CSS / image。
+
+**降级原则**：如果必须用 emoji 表达信息（如系统通知用 📢），同时在 fallback 路径有文字（"系统通知"），让用户即使看到方框也能猜出含义。
+
+**落地证据**：P7 计划 Task 6 已确定 `pages/leaderboard/leaderboard.uvue` rank 1/2/3 改 CSS 金银铜徽章。提交 hash 在 P7 执行后回填。
