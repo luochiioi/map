@@ -12,6 +12,9 @@
       </view>
     </view>
 
+    <view class="add-hint-row">
+      <text class="add-hint">输入对方用户 ID(可在【我的】页复制自己 ID 分享)</text>
+    </view>
     <view class="add-row">
       <input class="add-input" v-model="addUid" placeholder="输入好友用户ID" />
       <view class="add-btn" @click="doAddFriend">
@@ -47,6 +50,7 @@
 <script setup lang="uts">
 import { ref, computed } from 'vue'
 import { pullFriends, requestFriend, respondFriend, type FriendBuckets, type FriendshipRow } from '@/utils/friendCloud'
+import { state as userState } from '@/user/index.uts'
 
 const tab = ref<number>(0)
 const loading = ref<boolean>(false)
@@ -103,11 +107,32 @@ async function doAddFriend(): Promise<void> {
     uni.showToast({ title: '请输入用户ID', icon: 'none' })
     return
   }
-  const result = await requestFriend(uid)
-  if (result != null) {
-    uni.showToast({ title: result.autoAccepted ? '已自动成为好友' : '请求已发送', icon: 'success' })
-    addUid.value = ''
-    reload()
+  // P7 自检:不能加自己。原 doAddFriend 把 requestFriend 抛出的 errMsg 静默吞掉,
+  // 用户加自己时 UI 无反馈;现先客户端拦截再进 RPC,加自己 / 已是好友 / 用户不
+  // 存在等情况都给 toast。
+  const myUid = userState.userInfo != null ? userState.userInfo.userId : ''
+  if (myUid.length > 0 && uid == myUid) {
+    uni.showToast({ title: '不能添加自己', icon: 'none' })
+    return
+  }
+  try {
+    const result = await requestFriend(uid)
+    if (result != null) {
+      uni.showToast({
+        title: result.autoAccepted ? '已自动成为好友' : '请求已发送',
+        icon: 'success'
+      })
+      addUid.value = ''
+      reload()
+    } else {
+      uni.showToast({ title: '请求失败,请检查用户 ID', icon: 'none' })
+    }
+  } catch (e) {
+    // friendCloud.requestFriend errCode != 0 时 throw new Error(msg);
+    // 这里把 errMsg 提取出来给用户看(目标用户不存在/对方已是好友等)
+    const err = e as Error
+    const msg = err.message
+    uni.showToast({ title: msg.length > 0 ? msg : '请求失败', icon: 'none' })
   }
 }
 
@@ -139,6 +164,8 @@ onShow((): void => {
 .tab-text-on { font-size: 24rpx; color: #2ecc71; font-weight: 600; }
 .tab-text-off { font-size: 24rpx; color: #888888; }
 
+.add-hint-row { padding: 12rpx 24rpx 0 24rpx; background-color: #ffffff; }
+.add-hint { font-size: 22rpx; color: #999999; }
 .add-row { display: flex; flex-direction: row; padding: 16rpx 24rpx; background-color: #ffffff; border-bottom: 1rpx solid #f0f2f5; }
 .add-input { flex: 1; height: 60rpx; background-color: #f5f7f6; border-radius: 12rpx; padding: 0 16rpx; font-size: 24rpx; }
 .add-btn { margin-left: 16rpx; padding: 0 28rpx; background-color: #2ecc71; border-radius: 12rpx; display: flex; align-items: center; }
