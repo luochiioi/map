@@ -1,0 +1,283 @@
+<template>
+  <scroll-view class="edit-page" scroll-y direction="vertical" :show-scrollbar="false">
+
+    <!-- 头像块 -->
+    <view class="card">
+      <text class="card-title">头像</text>
+      <view class="avatar-row">
+        <view class="avatar-wrap" @click="onChooseAvatar">
+          <image
+            v-if="avatarPath.length > 0"
+            :src="avatarPath"
+            class="avatar-img"
+            mode="aspectFill"
+          />
+          <text v-else class="avatar-fallback">{{ avatarInitial }}</text>
+        </view>
+        <view class="avatar-hint-wrap">
+          <text class="avatar-hint">点击头像选择新的图片</text>
+          <text v-if="isUploadingAvatar" class="avatar-status">上传中...</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 昵称块 -->
+    <view class="card">
+      <text class="card-title">修改昵称</text>
+      <input
+        class="input"
+        v-model="nicknameInput"
+        placeholder="新昵称"
+        placeholder-class="placeholder"
+        :maxlength="32"
+      />
+      <view class="btn-primary" @click="onSaveNickname">
+        <text class="btn-primary-text">保存昵称</text>
+      </view>
+    </view>
+
+    <!-- 密码块 -->
+    <view class="card">
+      <text class="card-title">修改密码</text>
+      <input
+        class="input"
+        v-model="oldPwInput"
+        type="password"
+        placeholder="旧密码"
+        placeholder-class="placeholder"
+      />
+      <input
+        class="input"
+        v-model="newPwInput"
+        type="password"
+        placeholder="新密码(6 位以上)"
+        placeholder-class="placeholder"
+      />
+      <input
+        class="input"
+        v-model="confirmPwInput"
+        type="password"
+        placeholder="再次输入新密码"
+        placeholder-class="placeholder"
+      />
+      <view class="btn-primary" @click="onSavePassword">
+        <text class="btn-primary-text">保存密码</text>
+      </view>
+    </view>
+
+    <view class="spacer"></view>
+  </scroll-view>
+</template>
+
+<script setup lang="uts">
+import { ref, computed } from 'vue'
+import { state as userState, refreshUserInfo } from '@/user/index.uts'
+import type { UserInfo } from '@/user/index.uts'
+
+// 头像/昵称/密码用同一个云对象 user-center.updateProfile,
+// 但三块独立保存按钮,失败 toast 隔离。
+
+const nicknameInput = ref<string>('')
+const oldPwInput = ref<string>('')
+const newPwInput = ref<string>('')
+const confirmPwInput = ref<string>('')
+const isUploadingAvatar = ref<boolean>(false)
+
+const avatarPath = computed((): string => {
+  const u = userState.userInfo
+  return u != null ? u.avatar : ''
+})
+
+const avatarInitial = computed((): string => {
+  const u = userState.userInfo
+  if (u == null) return '?'
+  const name = u.userName.length > 0 ? u.userName : u.userId
+  return name.length > 0 ? name.substring(0, 1) : '?'
+})
+
+// §45:所有 helper 先声明,模板事件 handler 后用
+
+// 把 user-center.updateProfile 调用统一封装,避免三处重复 boilerplate。
+// 返回:成功 true,失败 false(已经 toast 提示)
+async function callUpdateProfile(payload: UTSJSONObject): Promise<boolean> {
+  try {
+    const userApi = uniCloud.importObject('user-center', { customUI: true } as UniCloudImportObjectOptions)
+    const res = await userApi.updateProfile(payload) as UTSJSONObject
+    const errCode = res["errCode"]
+    if (errCode == 0) return true
+    const errMsg = res["errMsg"] as string | null
+    uni.showToast({ title: errMsg != null && errMsg.length > 0 ? errMsg : '保存失败', icon: 'none' })
+    return false
+  } catch (e) {
+    console.log('updateProfile failed', e)
+    uni.showToast({ title: '网络错误', icon: 'none' })
+    return false
+  }
+}
+
+// 头像上传 → updateProfile。chooseImage 的 success 是同步回调,
+// 我们把 async upload 提取出来,符合 §45 词法先声明。
+async function runAvatarUpload(filePath: string): Promise<void> {
+  if (isUploadingAvatar.value) return
+  isUploadingAvatar.value = true
+  try {
+    const fs = uni.getFileSystemManager()
+    const base64Data = fs.readFileSync(filePath, 'base64') as string
+    const photoApi = uniCloud.importObject('photo-center')
+    const uploadRes = await photoApi.upload({
+      fileContent: base64Data,
+      fileName: `avatar_${Date.now()}.jpg`
+    }) as UTSJSONObject
+    const uploadErrCode = uploadRes["errCode"]
+    if (uploadErrCode != 0) {
+      uni.showToast({ title: '上传失败', icon: 'none' })
+      return
+    }
+    const uploadData = uploadRes["data"] as UTSJSONObject | null
+    if (uploadData == null) {
+      uni.showToast({ title: '上传响应异常', icon: 'none' })
+      return
+    }
+    const cloudURL = uploadData["cloudURL"] as string | null
+    if (cloudURL == null || cloudURL.length == 0) {
+      uni.showToast({ title: '上传响应异常', icon: 'none' })
+      return
+    }
+    const ok = await callUpdateProfile({ avatar: cloudURL } as UTSJSONObject)
+    if (ok) {
+      const current = userState.userInfo
+      if (current != null) {
+        refreshUserInfo({
+          userId: current.userId,
+          userName: current.userName,
+          avatar: cloudURL
+        } as UserInfo)
+      }
+      uni.showToast({ title: '头像已更新', icon: 'success' })
+    }
+  } catch (e) {
+    console.log('avatar upload failed', e)
+    uni.showToast({ title: '上传失败', icon: 'none' })
+  } finally {
+    isUploadingAvatar.value = false
+  }
+}
+
+function onChooseAvatar(): void {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: (imgRes: ChooseImageSuccess): void => {
+      if (imgRes.tempFilePaths.length > 0) {
+        runAvatarUpload(imgRes.tempFilePaths[0])
+      }
+    }
+  })
+}
+
+async function onSaveNickname(): Promise<void> {
+  const trimmed = nicknameInput.value.trim()
+  if (trimmed.length == 0) {
+    uni.showToast({ title: '昵称不能为空', icon: 'none' })
+    return
+  }
+  const ok = await callUpdateProfile({ nickname: trimmed } as UTSJSONObject)
+  if (ok) {
+    const current = userState.userInfo
+    if (current != null) {
+      refreshUserInfo({
+        userId: current.userId,
+        userName: trimmed,
+        avatar: current.avatar
+      } as UserInfo)
+    }
+    nicknameInput.value = ''
+    uni.showToast({ title: '昵称已更新', icon: 'success' })
+  }
+}
+
+async function onSavePassword(): Promise<void> {
+  const oldPw = oldPwInput.value
+  const newPw = newPwInput.value
+  const confirmPw = confirmPwInput.value
+  if (oldPw.length == 0) {
+    uni.showToast({ title: '请输入旧密码', icon: 'none' })
+    return
+  }
+  if (newPw.length < 6) {
+    uni.showToast({ title: '新密码至少 6 位', icon: 'none' })
+    return
+  }
+  if (newPw != confirmPw) {
+    uni.showToast({ title: '两次输入的新密码不一致', icon: 'none' })
+    return
+  }
+  const ok = await callUpdateProfile({
+    oldPassword: oldPw,
+    newPassword: newPw
+  } as UTSJSONObject)
+  if (ok) {
+    oldPwInput.value = ''
+    newPwInput.value = ''
+    confirmPwInput.value = ''
+    uni.showToast({ title: '密码已更新', icon: 'success' })
+  }
+}
+</script>
+
+<style>
+.edit-page { flex: 1; width: 750rpx; height: 100%; background-color: #f5f7f6; }
+
+.card {
+  background-color: #ffffff;
+  margin: 20rpx 24rpx 0 24rpx;
+  border-radius: 12rpx;
+  padding: 30rpx 24rpx;
+  display: flex;
+  flex-direction: column;
+}
+.card-title { font-size: 28rpx; color: #1a1a1a; font-weight: 600; margin-bottom: 20rpx; }
+
+.avatar-row { display: flex; flex-direction: row; align-items: center; }
+.avatar-wrap {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 70rpx;
+  background-color: #eef9f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-right: 24rpx;
+}
+.avatar-img { width: 140rpx; height: 140rpx; }
+.avatar-fallback { font-size: 56rpx; color: #2ecc71; font-weight: 600; }
+.avatar-hint-wrap { flex: 1; display: flex; flex-direction: column; }
+.avatar-hint { font-size: 24rpx; color: #888888; }
+.avatar-status { font-size: 22rpx; color: #2ecc71; margin-top: 6rpx; }
+
+.input {
+  border: 1rpx solid #e0e6e3;
+  border-radius: 8rpx;
+  padding: 18rpx 20rpx;
+  font-size: 26rpx;
+  color: #1a1a1a;
+  margin-bottom: 16rpx;
+  background-color: #fafbfa;
+}
+.placeholder { color: #b0b8b4; }
+
+.btn-primary {
+  background-color: #2ecc71;
+  border-radius: 8rpx;
+  padding: 20rpx 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10rpx;
+}
+.btn-primary-text { font-size: 28rpx; color: #ffffff; font-weight: 500; }
+
+.spacer { height: 60rpx; }
+</style>
