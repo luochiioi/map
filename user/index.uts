@@ -3,6 +3,9 @@ import { reactive } from 'vue'
 export type UserInfo = {
   userId: string
   userName: string
+  // P7 引入:头像 cloudPath。空串表示无头像(由 UI fallback 首字母)。
+  // 旧版本登录的 storage 没有此字段,migration 时 fallback 为 ''(见下方)。
+  avatar: string
 }
 
 // reactive() 必须传入带具名类型的对象字面量，否则 UTS 5.07 编译器无法推断成员类型
@@ -15,8 +18,23 @@ const savedUserInfo = uni.getStorageSync('userInfo')
 
 let processedUserInfo: UserInfo | null = null
 
+// 显式字段读取 + null fallback,避免 JSON.parse<UserInfo>() 遇到旧版 storage
+// 缺 avatar 字段时反序列化行为不确定(Kotlin 端可能抛 NPE 或落默认值)。
+// 这就是 PITFALLS §47 "JSON.parse<T>() 返回 T | null" 的落地保护。
 if (savedUserInfo instanceof UTSJSONObject) {
-  processedUserInfo = JSON.parse<UserInfo>(JSON.stringify(savedUserInfo))
+  const obj = savedUserInfo as UTSJSONObject
+  const savedUserId = obj["userId"] as string | null
+  const savedUserName = obj["userName"] as string | null
+  if (savedUserId != null && savedUserId.length > 0) {
+    const savedAvatar = obj["avatar"] as string | null
+    processedUserInfo = {
+      userId: savedUserId,
+      userName: savedUserName != null ? savedUserName : savedUserId,
+      avatar: savedAvatar != null ? savedAvatar : ''
+    } as UserInfo
+  } else {
+    uni.removeStorageSync('userInfo')
+  }
 } else if (savedUserInfo != null) {
   uni.removeStorageSync('userInfo')
 }
@@ -42,7 +60,8 @@ export function setUserInfo(data: UserInfo, token: string, tokenExpired: number)
   clearUserData()
   const safeData: UserInfo = {
     userId: data.userId,
-    userName: data.userName.length > 0 ? data.userName : data.userId
+    userName: data.userName.length > 0 ? data.userName : data.userId,
+    avatar: data.avatar
   }
   state.userInfo = safeData
   uni.setStorageSync('userInfo', safeData)
@@ -53,7 +72,8 @@ export function setUserInfo(data: UserInfo, token: string, tokenExpired: number)
 export function refreshUserInfo(data: UserInfo): void {
   const safeData: UserInfo = {
     userId: data.userId,
-    userName: data.userName.length > 0 ? data.userName : data.userId
+    userName: data.userName.length > 0 ? data.userName : data.userId,
+    avatar: data.avatar
   }
   state.userInfo = safeData
   uni.setStorageSync('userInfo', safeData)
@@ -71,10 +91,17 @@ export async function refreshUserIdFromAuth(): Promise<string | null> {
     if (data == null) return current.userId
     const uid = data["uid"] as string | null
     if (uid == null || uid.length == 0) return current.userId
-    if (uid != current.userId) {
+    // P7: 同时拉 nickname / avatar 回填,使我的主页 / 排行榜免去二次 RPC
+    const nicknameRaw = data["nickname"] as string | null
+    const avatarRaw = data["avatar"] as string | null
+    const nextUserName = nicknameRaw != null && nicknameRaw.length > 0 ? nicknameRaw : current.userName
+    const nextAvatar = avatarRaw != null ? avatarRaw : current.avatar
+    const changed = uid != current.userId || nextUserName != current.userName || nextAvatar != current.avatar
+    if (changed) {
       refreshUserInfo({
         userId: uid,
-        userName: current.userName
+        userName: nextUserName,
+        avatar: nextAvatar
       } as UserInfo)
     }
     return uid

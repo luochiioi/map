@@ -13,7 +13,8 @@
       if (data != null) {
         const userId = data["userId"] as string
         const userName = data["userName"] as string
-        refreshUserInfo({ userId, userName } as UserInfo)
+        // checkToken 不返 avatar;占位空串,真值由 refreshUserIdFromAuth 后续填
+        refreshUserInfo({ userId, userName, avatar: '' } as UserInfo)
       }
       console.log('Token 验证通过')
     } catch (e) {

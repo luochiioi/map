@@ -68,6 +68,7 @@
           const userData = {
             userId: resUserId,
             userName: resUserName,
+            avatar: '',
           } as UserInfo
 
           setUserInfo(userData, resToken, resTokenExpired)
