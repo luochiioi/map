@@ -23,7 +23,12 @@
           </view>
         </view>
         <text class="hero-reward">奖励：{{ rewardSummary }}</text>
-        <text v-if="isCompleted" class="hero-tag">已完成</text>
+        <view class="hero-actions">
+          <text v-if="isCompleted" class="hero-tag">已完成</text>
+          <view class="share-btn" @click="doShare">
+            <text class="share-btn-text">分享路线</text>
+          </view>
+        </view>
       </view>
 
       <view class="section">
@@ -58,6 +63,8 @@ import { pullActiveRoutes } from '@/utils/cloudSync'
 import { findById, loadFromStorage as loadMarkers } from '@/stores/useMarkerStore'
 import { requestFocusByMarker, returnToIndexForFocus } from '@/stores/useMapStore'
 import type { CheckinMarker } from '@/types/marker'
+import { buildRouteShareText } from '@/utils/deepLink'
+import { state as userState } from '@/user/index.uts'
 
 type RouteStep = {
   markerId: number
@@ -156,6 +163,20 @@ function goMarker(step: RouteStep): void {
   returnToIndexForFocus(2)
 }
 
+function doShare(): void {
+  const r = route.value
+  if (r == null) return
+  const uid = userState.userInfo != null ? userState.userInfo.userId : ''
+  const text = buildRouteShareText(r.name, r.id, uid)
+  if (text.length == 0) return
+  uni.setClipboardData({
+    data: text,
+    success: (): void => {
+      uni.showToast({ title: '已复制分享链接', icon: 'success' })
+    }
+  })
+}
+
 // PITFALLS §规则 16：onLoad / onShow 用 uni-app x 全局钩子，不要从 vue import
 onLoad((options: OnLoadOptions): void => {
   const idStr = options['id'] as string | null
@@ -203,7 +224,12 @@ onShow((): void => {
 
 .hero-reward { font-size: 26rpx; color: #2ecc71; margin-top: 18rpx; font-weight: 500; }
 
-.hero-tag { font-size: 22rpx; color: #ffffff; background-color: #2ecc71; align-self: flex-start; padding: 6rpx 18rpx; border-radius: 999rpx; margin-top: 14rpx; }
+.hero-actions { display: flex; flex-direction: row; align-items: center; margin-top: 16rpx; }
+
+.hero-tag { font-size: 22rpx; color: #ffffff; background-color: #2ecc71; padding: 6rpx 18rpx; border-radius: 999rpx; }
+
+.share-btn { margin-left: 16rpx; padding: 6rpx 22rpx; background-color: #f0f7ff; border-radius: 999rpx; border-width: 1rpx; border-style: solid; border-color: #2e9f5f; }
+.share-btn-text { font-size: 22rpx; color: #2e9f5f; font-weight: 500; }
 
 .section { margin: 0 24rpx 24rpx 24rpx; padding: 24rpx 24rpx 8rpx 24rpx; background-color: #ffffff; border-radius: 20rpx; display: flex; flex-direction: column; }
 .section-title { font-size: 28rpx; font-weight: 600; color: #1a1a1a; margin-bottom: 16rpx; }

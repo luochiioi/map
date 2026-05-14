@@ -1,0 +1,58 @@
+// UTS mirror of utils/deepLink.js — pure helpers for mapcheckin:// deep-link
+// parsing and share text composition. Duplicated because .uts can't require .js.
+
+export const ROUTE_DEEP_LINK_PREFIX: string = 'mapcheckin://route'
+
+export type RouteDeepLink = {
+  id: number
+  shareFrom: string
+}
+
+export function parseRouteDeepLink(text: string | null): RouteDeepLink | null {
+  if (text == null || text.length == 0) return null
+  const prefix = 'mapcheckin://route?'
+  const start = text.indexOf(prefix)
+  if (start < 0) return null
+
+  const queryStart = start + prefix.length
+  let queryEnd = queryStart
+  while (queryEnd < text.length) {
+    const ch = text.charAt(queryEnd)
+    if (ch == ' ' || ch == '\n' || ch == '\t' || ch == '<' || ch == '>') break
+    queryEnd++
+  }
+  const query = text.substring(queryStart, queryEnd)
+  if (query.length == 0) return null
+
+  const params = new Map<string, string>()
+  const parts = query.split('&')
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]
+    const eq = part.indexOf('=')
+    if (eq < 0) continue
+    params.set(part.substring(0, eq), part.substring(eq + 1))
+  }
+
+  const idStr = params.get('id')
+  if (idStr == null || idStr.length == 0) return null
+  const id = parseInt(idStr!!)
+  if (isNaN(id) || id <= 0) return null
+
+  const shareFrom = params.get('shareFrom')
+  return { id: id, shareFrom: shareFrom != null ? shareFrom : '' } as RouteDeepLink
+}
+
+export function buildRouteShareLink(id: number, uid: string): string {
+  if (id <= 0) return ''
+  if (uid.length > 0) {
+    return 'mapcheckin://route?id=' + id.toString() + '&shareFrom=' + uid
+  }
+  return 'mapcheckin://route?id=' + id.toString()
+}
+
+export function buildRouteShareText(name: string, routeId: number, uid: string): string {
+  if (routeId <= 0) return ''
+  const title = name.length > 0 ? name : '这条路线'
+  const link = buildRouteShareLink(routeId, uid)
+  return '「' + title + '」邀请你打卡 — 复制链接到 App 打开\n' + link
+}

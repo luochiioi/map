@@ -121,6 +121,7 @@ import { state as userState, clearUserInfo, refreshUserIdFromAuth } from '@/user
 import type { CheckinMarker, CheckinEntry } from '@/types/marker'
 import { formatDateTime } from '@/utils/format'
 import { deleteCloudCheckin, repairMissingCheckins } from '@/utils/cloudSync'
+import { parseRouteDeepLink, type RouteDeepLink } from '@/utils/deepLink'
 
 const LOCATE_SCALE: number = 17
 const OTHER_FOOTPRINT_PHOTO_LIMIT: number = 12
@@ -172,6 +173,22 @@ function goRoutes(): void {
 
 function goTasksOnly(): void {
   uni.navigateTo({ url: '/pages/tasks/tasks' })
+}
+
+// P6: deep-link handler — checks clipboard for a mapcheckin://route link
+// and navigates to the route detail page. Intended for "paste shared link" UX
+// and for eventual Android intent-filter integration.
+function handleDeepLinkFromClipboard(): void {
+  uni.getClipboardData({
+    success: (res: GetClipboardDataSuccess): void => {
+      const text = res.data
+      if (text == null || text.length == 0) return
+      const parsed = parseRouteDeepLink(text)
+      if (parsed == null) return
+      uni.setStorageSync('pending_deeplink_route_id', parsed.id.toString())
+      uni.navigateTo({ url: '/pages/route-detail/route-detail?id=' + parsed.id.toString() })
+    }
+  })
 }
 
 // Marker DTO stays local to the page namespace, then crosses into uni_modules as JSON.
@@ -410,6 +427,8 @@ onShow((): void => {
     repairAndRefreshForUser(markerId)
     centerOnUserOnce()
   })
+  // P6: handle deep link from clipboard (one-shot per app foreground)
+  handleDeepLinkFromClipboard()
 })
 
 onHide((): void => {
