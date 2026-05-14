@@ -503,6 +503,16 @@ module.exports = {
 
     const now = Date.now()
 
+    // P8 B6: 拉一次发起人的 nickname/avatar 给消息中心 payload,fresh/resurrect/auto-accept 三处复用。
+    const meRes = await db.collection('uni-id-users').doc(String(this.auth.uid))
+      .field({ nickname: true, avatar: true }).get()
+    const me = (meRes.data || [])[0] || {}
+    const fromPayload = {
+      fromUserId: String(this.auth.uid),
+      fromNickname: String(me.nickname || ''),
+      fromAvatar: String(me.avatar || '')
+    }
+
     // If the target already requested me, auto-accept that row instead of
     // creating a competing pending row.
     const incomingRes = await colFriendships
@@ -517,6 +527,8 @@ module.exports = {
         const flipped = applyFriendDecision(incoming, 'accept', now)
         await colFriendships.doc(incoming._id).update({ status: flipped.status, updatedAt: flipped.updatedAt })
         await colFriendships.add(buildMirrorRow(flipped, now))
+        // P8 B6: 通知对方"对方接受了你的好友请求"。auto-accept 路径同样通过消息中心反馈。
+        emitNotification('friend.accepted', targetUid, fromPayload)
         return { errCode: 0, errMsg: '已自动接受对方请求', data: { friendshipId: incoming._id, status: 'accepted', autoAccepted: true } }
       }
       // rejected: fall through and create a fresh pending row from me.
@@ -528,6 +540,7 @@ module.exports = {
     if (existingRes.data.length) {
       const row = existingRes.data[0]
       if (row.status === 'pending') {
+        // 既有 pending 不重发通知,避免对方刷屏。
         return { errCode: 0, errMsg: '请求已发送', data: { friendshipId: row._id, status: 'pending' } }
       }
       if (row.status === 'accepted') {
@@ -535,12 +548,16 @@ module.exports = {
       }
       // rejected → resurrect as pending so users can retry after a refusal.
       await colFriendships.doc(row._id).update({ status: 'pending', updatedAt: now, requestedBy: String(this.auth.uid) })
+      // P8 B6: resurrect 路径也是一次新的"对方收到好友请求"事件。
+      emitNotification('friend.requested', targetUid, fromPayload)
       return { errCode: 0, errMsg: '请求已发送', data: { friendshipId: row._id, status: 'pending' } }
     }
 
     const fresh = buildFriendRequest(this.auth.uid, targetUid, now)
     if (fresh == null) return { errCode: -1, errMsg: '参数无效' }
     const addRes = await colFriendships.add(fresh)
+    // P8 B6: fresh pending,服务端必须发 'friend.requested',否则被请求方消息中心收不到通知。
+    emitNotification('friend.requested', targetUid, fromPayload)
     return { errCode: 0, errMsg: '请求已发送', data: { friendshipId: addRes.id, status: 'pending' } }
   },
 
