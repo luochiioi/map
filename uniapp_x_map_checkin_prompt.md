@@ -3904,3 +3904,29 @@ Verification:
 - UTS forbidden-token grep: expected hits are only existing `route-detail` comments mentioning `Number(...)`.
 
 Next iteration plan remains: `docs/superpowers/plans/2026-05-12-p5.5-authoring-polish-and-ops.md`, with the admin task-records split and task-id auto-generation now treated as already landed.
+
+## 2026-05-14 P5.5 authoring polish + ops landed
+
+Commits on `codex/p1-marker-json-boundary`:
+- `39a92ee` feat: admin task marker picker with validation
+- `29bc59c` feat: route reward authoring guardrails
+- `b96f0d5` feat: month grouping and active-task entry on my-tasks
+- `7ed5bf1` feat: per-user filter and ledger ids on admin rewards
+- (this commit) feat: legacy UGC marker audit helper + docs
+
+Acceptance results:
+1. Admin task modal now uses a searchable marker picker driven by `getMarkers()`. `task-service.buildTaskUpsertDoc` and `validateTaskInput` accept an optional marker lookup; `admin-center.upsertTask` builds the lookup before saving so manual `targetMarkerId` entry is rejected on the server too. New task rows no longer persist `targetTitle`; the admin and App resolve titles from the live markers list.
+2. Route `points` and `both` saves now require `rewardPoints > 0` on both create and update paths. The admin route modal resets hidden fields when the kind toggle changes (`none` wipes reward + points, `prize` wipes points, `points` wipes reward text) and shows a kind-specific authoring hint. Route cards summarise as `无奖励 / 积分 N / 奖品（X） / 奖品 + 积分 N（X）`.
+3. App `pages/my-tasks/my-tasks` now month-buckets reward rows (`monthLabel` + `shouldShowMonth`) and surfaces a persistent "查看进行中任务" CTA plus an empty-state CTA. Both navigate to `/pages/tasks/tasks` via `uni.navigateTo` (no `switchTab` — App has no tabBar).
+4. Admin `pages/rewards/index.vue` now exposes a "筛选此用户" link on each row that pins `userIdInput` and reloads; each card also prints `奖励记录 ID` so support can cross-reference the Stack DB row directly. Reward-service tests pin order preservation, zero-point ignore, and single-user narrowing.
+5. UGC audit: P5.4 fully removed App-side marker authoring code paths (`pages/index/index.uvue` only retains a legacy `isOwner` badge + delete action for rows where `createdBy` matches the current uid; there is no longer any create flow). Added pure helper `admin-center/repair-service.js` (`isLegacyUserMarker`, `findLegacyUserMarkers`, `summarizeLegacyUserMarkers`) with tests, plus `admin-center.getLegacyUserMarkers()` cloud method to surface a `{ total, byUser: [{ userId, markerCount, markerIds }] }` audit shape. Operational decision: keep legacy `createdBy` rows untouched. Support can call `getLegacyUserMarkers` to identify residual UGC, then use the existing admin `deleteMarker(_id)` flow per-row if cleanup is requested. We intentionally do not bulk-rewrite `createdBy` to `system`, because that would lose attribution if a user later asks for their data back.
+
+### P5.5 forbidden-token grep notes
+
+After `.uvue` / `.uts` edits, run the standard PITFALLS grep:
+
+```powershell
+Get-ChildItem -Path pages,utils,stores,types,components -Recurse -Include *.uvue,*.uts | Select-String -Pattern 'Number\(|Number\.|display:\s*(block|inline|inline-block|grid|table)|switchTab'
+```
+
+Expected hits remain only in pre-existing `route-detail` comments that document the `Number(` ban itself, plus our new `pages/my-tasks/my-tasks.uvue` comment that documents why we use `navigateTo` instead of `switchTab`. Active code does not introduce new forbidden tokens.

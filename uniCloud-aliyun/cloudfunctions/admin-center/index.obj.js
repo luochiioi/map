@@ -36,6 +36,7 @@ const {
   buildTaskUpsertDoc,
   buildMarkerLookup: buildTaskMarkerLookup
 } = require('./task-service')
+const { summarizeLegacyUserMarkers } = require('./repair-service')
 
 const colMarkers = db.collection('tourism_markers')
 const colUsers = db.collection('uni-id-users')
@@ -711,6 +712,15 @@ module.exports = {
       updatedAt: Date.now()
     })
     return ok(null, '归档成功')
+  },
+
+  // P5.5 T4 —— 只读审计：列出 createdBy 仍指向真实 uid 的 markers
+  // （P5.4 之前的 UGC 残留），方便支持团队按 uid 排查与决定后续清理动作。
+  async getLegacyUserMarkers() {
+    const markerRes = await colMarkers
+      .field({ id: true, title: true, createdBy: true, createdAt: true })
+      .get()
+    return ok(summarizeLegacyUserMarkers(markerRes.data || []))
   },
 
   // P4 主题路线 P0 —— admin CRUD。tourism_routes 是 admin 维护的纯配置集合；
