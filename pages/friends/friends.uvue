@@ -1,0 +1,162 @@
+<template>
+  <view class="friends-page">
+    <view class="tab-bar">
+      <view class="tab" :class="tab == 0 ? 'tab-on' : 'tab-off'" @click="setTab(0)">
+        <text :class="tab == 0 ? 'tab-text-on' : 'tab-text-off'">已添加 ({{ accepted.length }})</text>
+      </view>
+      <view class="tab" :class="tab == 1 ? 'tab-on' : 'tab-off'" @click="setTab(1)">
+        <text :class="tab == 1 ? 'tab-text-on' : 'tab-text-off'">收到的请求 ({{ incoming.length }})</text>
+      </view>
+      <view class="tab" :class="tab == 2 ? 'tab-on' : 'tab-off'" @click="setTab(2)">
+        <text :class="tab == 2 ? 'tab-text-on' : 'tab-text-off'">发出的请求 ({{ outgoing.length }})</text>
+      </view>
+    </view>
+
+    <view class="add-row">
+      <input class="add-input" v-model="addUid" placeholder="输入好友用户ID" />
+      <view class="add-btn" @click="doAddFriend">
+        <text class="add-btn-text">添加</text>
+      </view>
+    </view>
+
+    <scroll-view class="list" scroll-y direction="vertical" :show-scrollbar="false">
+      <view v-if="loading" class="notice"><text class="notice-text">加载中...</text></view>
+      <view v-if="!loading && currentList.length == 0" class="empty"><text class="empty-text">{{ emptyLabel }}</text></view>
+
+      <view v-for="row in currentList" :key="row._id" class="friend-row" @click="goProfile(row)">
+        <view class="friend-avatar">
+          <text class="friend-avatar-text">{{ initial(row.profile.nickname) }}</text>
+        </view>
+        <view class="friend-info">
+          <text class="friend-name">{{ displayName(row) }}</text>
+          <text class="friend-stat">打卡 {{ row.profile.totalCheckins.toString() }} · 路线 {{ row.profile.completedRoutes.toString() }}</text>
+        </view>
+        <view v-if="tab == 1" class="friend-actions">
+          <view class="action-accept" @click.stop="doRespond(row._id, 'accept')">
+            <text class="action-btn-text-on">接受</text>
+          </view>
+          <view class="action-reject" @click.stop="doRespond(row._id, 'reject')">
+            <text class="action-btn-text-off">拒绝</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script setup lang="uts">
+import { ref, computed } from 'vue'
+import { pullFriends, requestFriend, respondFriend, type FriendBuckets, type FriendshipRow } from '@/utils/friendCloud'
+
+const tab = ref<number>(0)
+const loading = ref<boolean>(false)
+const addUid = ref<string>('')
+const accepted = ref<FriendshipRow[]>([] as FriendshipRow[])
+const incoming = ref<FriendshipRow[]>([] as FriendshipRow[])
+const outgoing = ref<FriendshipRow[]>([] as FriendshipRow[])
+
+const currentList = computed((): FriendshipRow[] => {
+  if (tab.value == 1) return incoming.value
+  if (tab.value == 2) return outgoing.value
+  return accepted.value
+})
+
+const emptyLabel = computed((): string => {
+  if (tab.value == 1) return '没有收到好友请求'
+  if (tab.value == 2) return '你没有发出的好友请求'
+  return '还没有添加好友'
+})
+
+function setTab(n: number): void { tab.value = n }
+
+function initial(name: string): string {
+  if (name.length == 0) return '?'
+  return name.substring(0, 1)
+}
+
+function displayName(row: FriendshipRow): string {
+  const prof = row.profile
+  if (prof.nickname.length > 0) return prof.nickname
+  const other = tab.value == 1 ? row.userId : row.friendUserId
+  return other.length > 0 ? other : '用户'
+}
+
+async function reload(): Promise<void> {
+  loading.value = true
+  try {
+    const buckets = await pullFriends(null)
+    accepted.value = buckets.accepted
+    incoming.value = buckets.incoming
+    outgoing.value = buckets.outgoing
+  } catch (_e) {
+    // keep stale
+  } finally {
+    loading.value = false
+  }
+}
+
+async function doAddFriend(): void {
+  const uid = addUid.value.trim()
+  if (uid.length == 0) {
+    uni.showToast({ title: '请输入用户ID', icon: 'none' })
+    return
+  }
+  const result = await requestFriend(uid)
+  if (result != null) {
+    uni.showToast({ title: result.autoAccepted ? '已自动成为好友' : '请求已发送', icon: 'success' })
+    addUid.value = ''
+    reload()
+  }
+}
+
+async function doRespond(fid: string, decision: string): Promise<void> {
+  const ok = await respondFriend(fid, decision)
+  if (ok) {
+    uni.showToast({ title: decision == 'accept' ? '已接受' : '已拒绝', icon: 'none' })
+    reload()
+  }
+}
+
+function goProfile(row: FriendshipRow): void {
+  const other = tab.value == 1 ? row.userId : row.friendUserId
+  uni.navigateTo({ url: '/pages/friend-profile/friend-profile?uid=' + other })
+}
+
+onShow((): void => {
+  reload()
+})
+</script>
+
+<style>
+.friends-page { flex: 1; width: 750rpx; height: 100%; background-color: #f5f7f6; }
+
+.tab-bar { display: flex; flex-direction: row; background-color: #ffffff; padding: 0 16rpx; }
+.tab { flex: 1; padding: 20rpx 8rpx; display: flex; align-items: center; justify-content: center; }
+.tab-on { border-bottom: 4rpx solid #2ecc71; }
+.tab-off { border-bottom: 4rpx solid transparent; }
+.tab-text-on { font-size: 24rpx; color: #2ecc71; font-weight: 600; }
+.tab-text-off { font-size: 24rpx; color: #888888; }
+
+.add-row { display: flex; flex-direction: row; padding: 16rpx 24rpx; background-color: #ffffff; border-bottom: 1rpx solid #f0f2f5; }
+.add-input { flex: 1; height: 60rpx; background-color: #f5f7f6; border-radius: 12rpx; padding: 0 16rpx; font-size: 24rpx; }
+.add-btn { margin-left: 16rpx; padding: 0 28rpx; background-color: #2ecc71; border-radius: 12rpx; display: flex; align-items: center; }
+.add-btn-text { font-size: 24rpx; color: #ffffff; font-weight: 500; }
+
+.list { flex: 1; }
+.notice { background-color: #eef9f2; border-radius: 12rpx; padding: 18rpx 20rpx; margin: 24rpx; }
+.notice-text { font-size: 24rpx; color: #2e9f5f; }
+.empty { padding: 80rpx 40rpx; display: flex; align-items: center; justify-content: center; }
+.empty-text { font-size: 26rpx; color: #999999; }
+
+.friend-row { padding: 20rpx 24rpx; background-color: #ffffff; border-bottom: 1rpx solid #f0f2f5; display: flex; flex-direction: row; align-items: center; }
+.friend-avatar { width: 72rpx; height: 72rpx; border-radius: 999rpx; background-color: #eef9f2; display: flex; align-items: center; justify-content: center; margin-right: 16rpx; }
+.friend-avatar-text { font-size: 30rpx; color: #2ecc71; font-weight: 600; }
+.friend-info { flex: 1; display: flex; flex-direction: column; }
+.friend-name { font-size: 28rpx; color: #1a1a1a; font-weight: 500; }
+.friend-stat { font-size: 22rpx; color: #888888; margin-top: 4rpx; }
+.friend-actions { display: flex; flex-direction: row; }
+.action-accept { padding: 10rpx 22rpx; background-color: #2ecc71; border-radius: 999rpx; margin-left: 8rpx; }
+.action-reject { padding: 10rpx 22rpx; background-color: #eef0f2; border-radius: 999rpx; margin-left: 8rpx; }
+.action-btn-text-on { font-size: 22rpx; color: #ffffff; font-weight: 500; }
+.action-btn-text-off { font-size: 22rpx; color: #888888; font-weight: 500; }
+</style>

@@ -1,0 +1,145 @@
+<template>
+  <view class="lb-page">
+    <view class="scope-bar">
+      <view class="scope-tab" :class="scope == 'global' ? 'scope-on' : 'scope-off'" @click="setScope('global')">
+        <text :class="scope == 'global' ? 'scope-text-on' : 'scope-text-off'">全平台</text>
+      </view>
+      <view class="scope-tab" :class="scope == 'friends' ? 'scope-on' : 'scope-off'" @click="setScope('friends')">
+        <text :class="scope == 'friends' ? 'scope-text-on' : 'scope-text-off'">好友圈</text>
+      </view>
+    </view>
+
+    <view class="metric-bar">
+      <view class="metric-tab" :class="metric == 'points' ? 'metric-on' : 'metric-off'" @click="setMetric('points')">
+        <text :class="metric == 'points' ? 'metric-text-on' : 'metric-text-off'">积分</text>
+      </view>
+      <view class="metric-tab" :class="metric == 'routes' ? 'metric-on' : 'metric-off'" @click="setMetric('routes')">
+        <text :class="metric == 'routes' ? 'metric-text-on' : 'metric-text-off'">路线</text>
+      </view>
+      <view class="metric-tab" :class="metric == 'checkins' ? 'metric-on' : 'metric-off'" @click="setMetric('checkins')">
+        <text :class="metric == 'checkins' ? 'metric-text-on' : 'metric-text-off'">打卡</text>
+      </view>
+    </view>
+
+    <scroll-view class="lb-list" scroll-y direction="vertical" :show-scrollbar="false">
+      <view v-if="loading" class="notice"><text class="notice-text">加载中...</text></view>
+      <view v-if="!loading && rows.length == 0" class="empty"><text class="empty-text">暂无排行数据</text></view>
+
+      <view v-for="row in rows" :key="row.userId" class="lb-row" :class="isSelfRow(row) ? 'lb-row-self' : ''">
+        <text class="lb-rank">{{ rankText(row.rank) }}</text>
+        <view class="lb-avatar"><text class="lb-avatar-text">{{ initial(row.nickname) }}</text></view>
+        <view class="lb-info">
+          <text class="lb-name">{{ row.nickname }}</text>
+          <text class="lb-sub">{{ labelFor(row) }}</text>
+        </view>
+        <text class="lb-value">{{ row.value.toString() }}</text>
+      </view>
+
+      <view v-if="selfRow != null && !selfInTop" class="lb-row lb-row-self lb-row-footer">
+        <text class="lb-rank">{{ rankText(selfRow.rank) }}</text>
+        <view class="lb-avatar"><text class="lb-avatar-text">{{ initial(selfRow.nickname) }}</text></view>
+        <view class="lb-info">
+          <text class="lb-name">{{ selfRow.nickname }}</text>
+          <text class="lb-sub">{{ labelFor(selfRow) }}</text>
+        </view>
+        <text class="lb-value">{{ selfRow.value.toString() }}</text>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script setup lang="uts">
+import { ref, computed } from 'vue'
+import { pullLeaderboard, type LeaderboardRow, type LeaderboardResult } from '@/utils/friendCloud'
+import { state as userState } from '@/user/index.uts'
+
+const metric = ref<string>('points')
+const scope = ref<string>('global')
+const loading = ref<boolean>(false)
+const rows = ref<LeaderboardRow[]>([] as LeaderboardRow[])
+const selfRow = ref<LeaderboardRow | null>(null)
+
+const selfInTop = computed((): boolean => {
+  if (selfRow.value == null) return false
+  return rows.value.some((r: LeaderboardRow): boolean => r.userId == selfRow.value!!.userId)
+})
+
+function setMetric(m: string): void { metric.value = m; reload() }
+function setScope(s: string): void { scope.value = s; reload() }
+
+function initial(name: string): string {
+  if (name.length == 0) return '?'
+  return name.substring(0, 1)
+}
+
+function rankText(rank: number): string {
+  if (rank == 1) return '🥇'
+  if (rank == 2) return '🥈'
+  if (rank == 3) return '🥉'
+  return rank.toString()
+}
+
+function labelFor(row: LeaderboardRow): string {
+  if (metric.value == 'routes') return '完成路线 ' + row.routes.toString()
+  if (metric.value == 'checkins') return '打卡 ' + row.checkins.toString()
+  return '积分 ' + row.points.toString()
+}
+
+function isSelfRow(row: LeaderboardRow): boolean {
+  const me = userState.userInfo != null ? userState.userInfo.userId : ''
+  return me.length > 0 && row.userId == me
+}
+
+async function reload(): Promise<void> {
+  loading.value = true
+  try {
+    const result = await pullLeaderboard(metric.value, scope.value, 50)
+    rows.value = result.rows
+    selfRow.value = result.self
+  } catch (_e) {
+    // keep stale
+  } finally {
+    loading.value = false
+  }
+}
+
+onShow((): void => {
+  reload()
+})
+</script>
+
+<style>
+.lb-page { flex: 1; width: 750rpx; height: 100%; background-color: #f5f7f6; }
+
+.scope-bar { display: flex; flex-direction: row; background-color: #ffffff; padding: 0 40rpx; }
+.scope-tab { flex: 1; padding: 18rpx 0; display: flex; align-items: center; justify-content: center; }
+.scope-on { border-bottom: 4rpx solid #2ecc71; }
+.scope-off { border-bottom: 4rpx solid transparent; }
+.scope-text-on { font-size: 26rpx; color: #2ecc71; font-weight: 600; }
+.scope-text-off { font-size: 26rpx; color: #888888; }
+
+.metric-bar { display: flex; flex-direction: row; padding: 12rpx 40rpx; background-color: #ffffff; border-bottom: 1rpx solid #f0f2f5; }
+.metric-tab { padding: 8rpx 24rpx; border-radius: 999rpx; margin-right: 12rpx; }
+.metric-on { background-color: #eef9f2; }
+.metric-off { background-color: #f5f7f6; }
+.metric-text-on { font-size: 22rpx; color: #2ecc71; font-weight: 500; }
+.metric-text-off { font-size: 22rpx; color: #888888; }
+
+.lb-list { flex: 1; }
+.notice { background-color: #eef9f2; border-radius: 12rpx; padding: 18rpx 20rpx; margin: 24rpx; }
+.notice-text { font-size: 24rpx; color: #2e9f5f; }
+.empty { padding: 80rpx 40rpx; display: flex; align-items: center; justify-content: center; }
+.empty-text { font-size: 26rpx; color: #999999; }
+
+.lb-row { padding: 16rpx 24rpx; background-color: #ffffff; border-bottom: 1rpx solid #f0f2f5; display: flex; flex-direction: row; align-items: center; }
+.lb-row-self { background-color: #f0f9f4; }
+.lb-row-footer { border-top: 2rpx solid #2ecc71; }
+
+.lb-rank { width: 56rpx; font-size: 26rpx; color: #5a6770; text-align: center; }
+.lb-avatar { width: 60rpx; height: 60rpx; border-radius: 999rpx; background-color: #eef9f2; display: flex; align-items: center; justify-content: center; margin-right: 14rpx; }
+.lb-avatar-text { font-size: 24rpx; color: #2ecc71; font-weight: 600; }
+.lb-info { flex: 1; display: flex; flex-direction: column; }
+.lb-name { font-size: 26rpx; color: #1a1a1a; font-weight: 500; }
+.lb-sub { font-size: 20rpx; color: #888888; margin-top: 2rpx; }
+.lb-value { font-size: 32rpx; color: #2ecc71; font-weight: 600; }
+</style>

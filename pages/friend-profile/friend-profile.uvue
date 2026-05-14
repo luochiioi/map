@@ -1,0 +1,122 @@
+<template>
+  <scroll-view class="profile-page" scroll-y direction="vertical" :show-scrollbar="false">
+    <view v-if="loading" class="notice"><text class="notice-text">加载中...</text></view>
+    <view v-if="errorText.length > 0" class="notice notice-error"><text class="notice-text">{{ errorText }}</text></view>
+
+    <view v-if="profile != null" class="content">
+      <view class="card hero">
+        <view class="hero-avatar"><text class="hero-avatar-text">{{ initial(profile.nickname) }}</text></view>
+        <text class="hero-name">{{ profile.nickname }}</text>
+        <text class="hero-uid">ID: {{ profile.userId }}</text>
+      </view>
+
+      <view class="card stats">
+        <view class="stat-item">
+          <text class="stat-num">{{ profile.totalCheckins.toString() }}</text>
+          <text class="stat-label">累计打卡</text>
+        </view>
+        <view class="stat-div" />
+        <view class="stat-item">
+          <text class="stat-num">{{ profile.totalPhotos.toString() }}</text>
+          <text class="stat-label">照片</text>
+        </view>
+        <view class="stat-div" />
+        <view class="stat-item">
+          <text class="stat-num">{{ profile.completedRoutes.toString() }}</text>
+          <text class="stat-label">完成路线</text>
+        </view>
+      </view>
+
+      <view class="card unfriend" @click="confirmUnfriend">
+        <text class="unfriend-text">解除好友</text>
+      </view>
+    </view>
+  </scroll-view>
+</template>
+
+<script setup lang="uts">
+import { ref } from 'vue'
+import { getFriendProfile, unfriend, type FriendProfile } from '@/utils/friendCloud'
+
+const loading = ref<boolean>(false)
+const errorText = ref<string>('')
+const profile = ref<FriendProfile | null>(null)
+const targetUid = ref<string>('')
+
+function initial(name: string): string {
+  if (name.length == 0) return '?'
+  return name.substring(0, 1)
+}
+
+async function reload(): Promise<void> {
+  if (targetUid.value.length == 0) {
+    errorText.value = '缺少用户信息'
+    return
+  }
+  loading.value = true
+  errorText.value = ''
+  try {
+    const p = await getFriendProfile(targetUid.value)
+    if (p == null) {
+      errorText.value = '尚未成为好友或用户不存在'
+    } else {
+      profile.value = p
+    }
+  } catch (e) {
+    errorText.value = '加载失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function confirmUnfriend(): Promise<void> {
+  const ok = await unfriend(targetUid.value)
+  if (ok) {
+    uni.showToast({ title: '已解除好友', icon: 'none' })
+    uni.navigateBack({ delta: 1 as number })
+  } else {
+    uni.showToast({ title: '操作失败', icon: 'none' })
+  }
+}
+
+onLoad((options: OnLoadOptions): void => {
+  const uid = options['uid'] as string | null
+  if (uid != null && uid.length > 0) {
+    targetUid.value = uid
+  }
+})
+
+onShow((): void => {
+  if (targetUid.value.length > 0) {
+    reload()
+  }
+})
+</script>
+
+<style>
+.profile-page { flex: 1; width: 750rpx; height: 100%; background-color: #f5f7f6; }
+
+.notice { background-color: #eef9f2; border-radius: 12rpx; padding: 18rpx 20rpx; margin: 24rpx; }
+.notice-error { background-color: #fff1f0; }
+.notice-text { font-size: 24rpx; color: #2e9f5f; }
+.notice-error .notice-text { color: #d93026; }
+
+.content { display: flex; flex-direction: column; padding: 24rpx; }
+
+.card { background-color: #ffffff; border-radius: 20rpx; padding: 24rpx; margin-bottom: 20rpx; }
+
+.hero { display: flex; flex-direction: column; align-items: center; padding: 40rpx 24rpx; }
+.hero-avatar { width: 108rpx; height: 108rpx; border-radius: 999rpx; background-color: #eef9f2; display: flex; align-items: center; justify-content: center; margin-bottom: 16rpx; }
+.hero-avatar-text { font-size: 44rpx; color: #2ecc71; font-weight: 600; }
+.hero-name { font-size: 34rpx; color: #1a1a1a; font-weight: 600; }
+.hero-uid { font-size: 22rpx; color: #aaaaaa; margin-top: 6rpx; }
+
+.stats { display: flex; flex-direction: row; align-items: center; padding: 28rpx 16rpx; }
+.stat-item { flex: 1; display: flex; flex-direction: column; align-items: center; }
+.stat-num { font-size: 34rpx; color: #2ecc71; font-weight: 600; }
+.stat-label { font-size: 22rpx; color: #888888; margin-top: 6rpx; }
+.stat-div { width: 1rpx; height: 48rpx; background-color: #f0f2f5; }
+
+.unfriend { display: flex; align-items: center; justify-content: center; padding: 20rpx; }
+.unfriend-text { font-size: 24rpx; color: #d93026; }
+</style>

@@ -144,3 +144,48 @@ export function bucketsAreEmpty(buckets: FriendBuckets): boolean {
     buckets.incoming.length == 0 &&
     buckets.outgoing.length == 0
 }
+
+// ===== Leaderboard =====
+
+export type LeaderboardRow = {
+  userId: string
+  nickname: string
+  avatar: string
+  points: number
+  routes: number
+  checkins: number
+  firstCheckedAt: number
+  metric: string
+  value: number
+  rank: number
+}
+
+export type LeaderboardResult = {
+  metric: string
+  scope: string
+  rows: LeaderboardRow[]
+  self: LeaderboardRow | null
+}
+
+export async function pullLeaderboard(metric: string, scope: string, limit: number): Promise<LeaderboardResult> {
+  try {
+    const payload = JSON.parse('{}') as UTSJSONObject
+    payload['metric'] = metric
+    payload['scope'] = scope
+    payload['limit'] = limit
+    const res = await markerApi().getLeaderboard(payload) as UTSJSONObject
+    const errCode = res['errCode'] as number
+    if (errCode !== 0) return emptyLeaderboard(metric, scope)
+    const raw = res['data']
+    if (raw == null) return emptyLeaderboard(metric, scope)
+    const parsed = JSON.parse<LeaderboardResult>(JSON.stringify(raw))
+    return parsed ?? emptyLeaderboard(metric, scope)
+  } catch (e) {
+    console.log('[friendCloud] pullLeaderboard failed', e)
+    return emptyLeaderboard(metric, scope)
+  }
+}
+
+function emptyLeaderboard(metric: string, scope: string): LeaderboardResult {
+  return { metric, scope, rows: [] as LeaderboardRow[], self: null } as LeaderboardResult
+}

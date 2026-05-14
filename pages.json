@@ -80,6 +80,24 @@
       "style": {
         "navigationBarTitleText": "消息中心"
       }
+    },
+    {
+      "path": "pages/friends/friends",
+      "style": {
+        "navigationBarTitleText": "好友"
+      }
+    },
+    {
+      "path": "pages/friend-profile/friend-profile",
+      "style": {
+        "navigationBarTitleText": "好友资料"
+      }
+    },
+    {
+      "path": "pages/leaderboard/leaderboard",
+      "style": {
+        "navigationBarTitleText": "排行榜"
+      }
     }
   ],
   "globalStyle": {
