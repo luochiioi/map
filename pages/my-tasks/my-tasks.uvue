@@ -13,6 +13,12 @@
       <text class="notice-text">正在加载任务记录...</text>
     </view>
 
+    <view v-if="!loading && !needsLogin" class="quick-actions">
+      <view class="action-btn primary" @click="goActiveTasks">
+        <text class="action-btn-text light">查看进行中任务</text>
+      </view>
+    </view>
+
     <view v-if="!loading && needsLogin" class="empty-state">
       <text class="empty-text">登录后才能查看任务记录。</text>
       <view class="action-btn primary" @click="goLogin">
@@ -21,18 +27,24 @@
     </view>
 
     <view v-if="!loading && !needsLogin && taskRewards.length === 0" class="empty-state">
-      <text class="empty-text">还没有任务奖励记录。完成任务后，这里会显示自动发放的积分。</text>
+      <text class="empty-text">还没有任务奖励记录。{{ '\n' }}前往任务列表完成一个任务，这里就会出现自动发放的积分。</text>
+      <view class="action-btn primary" @click="goActiveTasks">
+        <text class="action-btn-text light">浏览当前任务</text>
+      </view>
     </view>
 
-    <view v-for="(entry, idx) in taskRewards" :key="entry._id + '_' + idx.toString()" class="task-card">
-      <view class="card-head">
-        <text class="card-title">{{ titleFor(entry) }}</text>
-        <view class="status-badge">
-          <text class="status-text">已发放</text>
+    <view v-for="(entry, idx) in taskRewards" :key="entry._id + '_' + idx.toString()" class="card-wrap">
+      <text v-if="shouldShowMonth(idx)" class="month-label">{{ monthLabel(entry.earnedAt) }}</text>
+      <view class="task-card">
+        <view class="card-head">
+          <text class="card-title">{{ titleFor(entry) }}</text>
+          <view class="status-badge">
+            <text class="status-text">已发放</text>
+          </view>
         </view>
+        <text class="reward-text">{{ rewardText(entry) }}</text>
+        <text class="time-text">{{ fmtTime(entry.earnedAt) }}</text>
       </view>
-      <text class="reward-text">{{ rewardText(entry) }}</text>
-      <text class="time-text">{{ fmtTime(entry.earnedAt) }}</text>
     </view>
   </scroll-view>
 </template>
@@ -55,6 +67,18 @@ const taskRewards = computed((): RewardEntry[] => {
 
 function fmtTime(ts: number): string {
   return formatDateTime(ts)
+}
+
+function monthLabel(ts: number): string {
+  const d = new Date(ts)
+  return d.getFullYear().toString() + ' 年 ' + (d.getMonth() + 1).toString() + ' 月'
+}
+
+function shouldShowMonth(idx: number): boolean {
+  if (idx === 0) return true
+  const cur = taskRewards.value[idx]
+  const prev = taskRewards.value[idx - 1]
+  return monthLabel(cur.earnedAt) !== monthLabel(prev.earnedAt)
 }
 
 function titleFor(entry: RewardEntry): string {
@@ -95,6 +119,11 @@ function goLogin(): void {
   uni.navigateTo({ url: '/pages/login/login' })
 }
 
+// App 没有 tabBar；只能 navigateTo，不能 switchTab。
+function goActiveTasks(): void {
+  uni.navigateTo({ url: '/pages/tasks/tasks' })
+}
+
 onShow((): void => {
   reload()
 })
@@ -115,7 +144,12 @@ onShow((): void => {
 .empty-state { padding: 80rpx 40rpx; display: flex; flex-direction: column; align-items: center; }
 .empty-text { font-size: 26rpx; color: #999999; line-height: 40rpx; text-align: center; }
 
-.task-card { margin: 0 24rpx 16rpx 24rpx; background-color: #ffffff; border-radius: 18rpx; padding: 24rpx; display: flex; flex-direction: column; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.04); }
+.quick-actions { padding: 0 24rpx 16rpx 24rpx; display: flex; flex-direction: row; }
+
+.card-wrap { padding: 0 24rpx; margin-bottom: 16rpx; }
+.month-label { font-size: 22rpx; color: #88928d; margin: 12rpx 4rpx 8rpx 4rpx; font-weight: 500; }
+
+.task-card { background-color: #ffffff; border-radius: 18rpx; padding: 24rpx; display: flex; flex-direction: column; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.04); }
 .card-head { display: flex; flex-direction: row; align-items: center; }
 .card-title { flex: 1; font-size: 30rpx; font-weight: 600; color: #1a1a1a; lines: 2; }
 .status-badge { border-radius: 999rpx; padding: 4rpx 12rpx; margin-left: 8rpx; background-color: #e6f9ed; }
