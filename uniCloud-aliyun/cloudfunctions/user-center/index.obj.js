@@ -1,5 +1,6 @@
 const db = uniCloud.database()
 const uniId = require('uni-id-common')
+const authUtil = require('auth-util')
 const { buildProfileUpdate, needsUserDoc } = require('./profile-service')
 
 async function checkIdExist(userName) {
@@ -31,7 +32,15 @@ async function checkIdExist(userName) {
 }
 
 module.exports = {
-  _before: function() {
+  // login / sign / checkToken 不需登录;updateProfile 自己检查 this.auth.uid。
+  // 因此 _before 失败 catch 不抛,保留 this.auth.uid = null。详见 PITFALLS §规则 50。
+  _before: async function() {
+    this.auth = { uid: null }
+    try {
+      this.auth.uid = await authUtil.checkAuth(this)
+    } catch (e) {
+      // intentional: login / sign 走未登录路径
+    }
   },
 
   async login(userName, userPassword) {
