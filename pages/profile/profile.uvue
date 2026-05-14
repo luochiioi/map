@@ -145,12 +145,15 @@ async function init(): Promise<void> {
 function copyId(): void {
   const u = userState.userInfo
   if (u == null) return
+  // route-detail.uvue:172 同款写法:arrow function `(): void =>` 让类型推断
+  // 命中 Function1<SetClipboardDataSuccess, Unit>?(optional 参数省略)。
+  // 匿名 `function() {}` 会被强绑为 Function0<Unit> 导致 error17。
   uni.setClipboardData({
     data: u.userId,
-    success: function() {
+    success: (): void => {
       uni.showToast({ title: '已复制', icon: 'success', duration: 1200 })
     }
-  } as SetClipboardDataOptions)
+  })
 }
 
 function goMyCheckins(): void {
@@ -167,16 +170,18 @@ function goEdit(): void {
 }
 
 function doLogout(): void {
-  uni.showModal({
-    title: '退出登录',
-    content: '确定要退出当前账号吗?',
-    success: function(res: ShowModalSuccess) {
-      if (res.confirm) {
+  // PITFALLS §10.4:uni.showModal 在 5.07 真机会 ClassCastException(my-checkins.uvue:186
+  // 已实证),本项目用 showActionSheet 替代。actionSheet 自带"取消"按钮,
+  // 误点也能取消。
+  uni.showActionSheet({
+    itemList: ['确认退出登录'],
+    success: (res: ShowActionSheetSuccess): void => {
+      if (res.tapIndex == 0) {
         clearUserInfo()
         uni.reLaunch({ url: '/pages/index/index' })
       }
     }
-  } as ShowModalOptions)
+  })
 }
 
 onShow((): void => {
