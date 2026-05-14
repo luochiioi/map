@@ -1,5 +1,6 @@
 const db = uniCloud.database()
 const uniId = require('uni-id-common')
+const { buildProfileUpdate, needsUserDoc } = require('./profile-service')
 
 async function checkIdExist(userName) {
   try {
@@ -160,5 +161,37 @@ module.exports = {
       }
     }
     return { errCode: -1, errMsg: 'Token 已过期' }
+  },
+
+  // 用户资料更新:支持 nickname / avatar / password 三类字段独立或组合更新。
+  // 密码字段需要旧密码校验,通过 profile-service 内的双因素逻辑判定。
+  // 客户端 pages/profile-edit/profile-edit.uvue 调用。
+  async updateProfile(payload) {
+    if (!this.auth || !this.auth.uid) {
+      return { errCode: 'NOT_LOGIN', errMsg: '未登录', data: null }
+    }
+    const uid = this.auth.uid
+
+    let userDoc = null
+    if (needsUserDoc(payload)) {
+      try {
+        const userRes = await db.collection('uni-id-users').doc(uid).get()
+        userDoc = (userRes.data || [])[0] || null
+      } catch (e) {
+        return { errCode: 'DATABASE_QUERY_FAILED', errMsg: '数据库查询错误', data: null }
+      }
+    }
+
+    const result = buildProfileUpdate(payload, userDoc)
+    if (result.errCode !== 0) {
+      return { errCode: result.errCode, errMsg: result.errMsg, data: null }
+    }
+
+    try {
+      await db.collection('uni-id-users').doc(uid).update(result.update)
+    } catch (e) {
+      return { errCode: 'FAILED_TO_WRITE_TO_DATABASE', errMsg: '数据库写入错误', data: null }
+    }
+    return { errCode: 0, errMsg: '更新成功', data: { updated: Object.keys(result.update) } }
   }
 }

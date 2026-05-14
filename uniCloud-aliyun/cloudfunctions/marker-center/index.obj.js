@@ -38,6 +38,7 @@ const {
   aggregateLeaderboardRows
 } = require('./leaderboard-service')
 const { buildNotification, markRead } = require('./notification-service')
+const { buildWhoamiResponse } = require('./whoami-service')
 
 // 拉当前 uid 在所有 marker 中的"已打卡 markerId 集合"。
 // 嵌套字段查询 'checkedBy.userId': uid 复用 §规则 29 的索引友好写法。
@@ -162,8 +163,15 @@ module.exports = {
   // ===== 需登录操作 =====
 
   async whoami() {
-    if (!this.auth.uid) return { errCode: -1, errMsg: '请先登录' }
-    return { errCode: 0, data: { uid: this.auth.uid } }
+    if (!this.auth || !this.auth.uid) {
+      return { errCode: 401, errMsg: '未登录', data: null }
+    }
+    const userRes = await db.collection('uni-id-users')
+      .doc(this.auth.uid)
+      .field({ _id: 1, nickname: 1, avatar: 1, username: 1 })
+      .get()
+    const user = (userRes.data || [])[0]
+    return buildWhoamiResponse(user)
   },
 
   async checkin(data) {
