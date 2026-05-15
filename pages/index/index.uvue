@@ -12,7 +12,6 @@
     </view>
 
     <checkin-map
-      :key="currentUid"
       map-id="mainMap"
       class="map-component"
       :latitude="latitude"
@@ -144,16 +143,16 @@ let hasCenteredOnUser: boolean = false
 const panelDetailsLoading = ref<boolean>(false)
 const notifUnread = ref<number>(0)
 
-// P8 B2: <checkin-map> 原生 SDK 跨 reLaunch / navigateBack 重绑定时,
-// map 控件复用旧实例,切换到不同用户的 markers 时出现黑屏过渡态。
-// 用 uid(session 维度)作 key,logout/userInfo=null→key 变为 'anon',
-// 新登录→key 变为新 uid,Vue 销毁旧原生实例重建,消除复用态。
-// https://vuejs.org/api/built-in-special-attributes.html#key
-const currentUid = computed((): string => {
-  const info = userState.userInfo
-  return info != null ? info.userId : 'anon'
-})
-
+// P9-0 B2 黑屏(α 方案): 移除 :key="currentUid"。
+// 历史: P8 a548c40 用 :key 强制 <map> 在 uid 变化时整体重建,消除"旧 SDK
+// 实例 + 新 markers"的中间态错误,代价是每次 logout/login 都付 3-5s 原生
+// MapView GL 上下文重建。
+// 现策略: 依赖 user/index.uts:clearUserInfo() 末尾 markers.value=[] +
+// onShow 里 syncFromCloud(uid) 重新拉取,markers-json 走 Vue 响应式刷新
+// 即可,不再 unmount <map>。黑屏窗口期被完全消除。
+// 回滚到 β: 若真机出现旧 marker 残留 / 旧 GL 缓存伪影,在 <checkin-map>
+// 上重新加 :key="currentUid" 并实现事件驱动遮罩(以 @regionchange 为
+// 真实就绪信号,4s 兜底),参考 uniapp_x_map_checkin_prompt.md P9-0。
 const isLoggedIn = computed((): boolean => userState.userInfo != null)
 const authLabel = computed((): string => {
   if (userState.userInfo == null) return '登录'
