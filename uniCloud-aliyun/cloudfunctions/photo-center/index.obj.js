@@ -17,8 +17,9 @@ module.exports = {
     const { fileContent, fileName } = data
     if (!fileContent) return { errCode: -1, errMsg: '缺少文件内容' }
 
+    const folder = (data && typeof data.folder === 'string' && data.folder) ? data.folder : 'avatars'
     const result = await uniCloud.uploadFile({
-      cloudPath: `avatars/${this.auth.uid}/${Date.now()}_${fileName || 'avatar.jpg'}`,
+      cloudPath: `${folder}/${this.auth.uid}/${Date.now()}_${fileName || 'avatar.jpg'}`,
       fileContent: Buffer.from(fileContent, 'base64')
     })
     return {
