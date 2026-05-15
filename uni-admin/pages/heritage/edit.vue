@@ -149,7 +149,7 @@ import { getErrorMessage, goAdminLogin, isAuthError } from '@/utils/adminAuth.js
 
 const CATEGORIES = [
   '传统技艺', '民俗', '曲艺', '传统音乐', '传统舞蹈',
-  '传统美术', '传统医药', '民间文学', '传统体育'
+  '传统美术', '传统医药', '民间文学', '传统体育', '传统戏剧'
 ]
 
 const STATUS_OPTIONS = [

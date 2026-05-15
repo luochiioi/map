@@ -72,7 +72,7 @@ import { ref } from 'vue'
 import type { HeritageListItem } from '@/types/heritage'
 import { fetchHeritageList } from '@/utils/heritageCloud'
 
-const categories: string[] = ['全部', '传统技艺', '民俗', '曲艺', '传统音乐', '传统舞蹈', '传统美术', '传统医药', '民间文学', '传统体育']
+const categories: string[] = ['全部', '传统技艺', '民俗', '曲艺', '传统音乐', '传统舞蹈', '传统美术', '传统医药', '民间文学', '传统体育', '传统戏剧']
 
 const activeCategory = ref<string>('')
 const items = ref<HeritageListItem[]>([])
