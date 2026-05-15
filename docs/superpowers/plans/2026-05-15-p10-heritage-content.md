@@ -467,26 +467,18 @@ git commit -m "feat(cloud): heritage-center 云对象（公开读+管理写） (
 **Files:**
 - Modify: `uniCloud-aliyun/cloudfunctions/photo-center/index.obj.js`
 
-- [ ] **Step 1: 改 upload 方法**
+- [ ] **Step 1: 改 upload 方法** ✅ 已落地 commit `0ee7eec`
 
-Current（`upload` 方法内 cloudPath 行）：
+注意：P9 已把 photo-center 瘦身为仅头像上传，实际 cloudPath 是 `avatars/...`（非计划初稿写的 `checkin-photos/...`）。已落地实现：
 ```js
+const folder = (data && typeof data.folder === 'string' && data.folder) ? data.folder : 'avatars'
 const result = await uniCloud.uploadFile({
-  cloudPath: `checkin-photos/${this.auth.uid}/${Date.now()}_${fileName || 'photo.jpg'}`,
+  cloudPath: `${folder}/${this.auth.uid}/${Date.now()}_${fileName || 'avatar.jpg'}`,
   fileContent: Buffer.from(fileContent, 'base64')
 })
 ```
 
-Target：
-```js
-const folder = (data && typeof data.folder === 'string' && data.folder) ? data.folder : 'checkin-photos'
-const result = await uniCloud.uploadFile({
-  cloudPath: `${folder}/${this.auth.uid}/${Date.now()}_${fileName || 'photo.jpg'}`,
-  fileContent: Buffer.from(fileContent, 'base64')
-})
-```
-
-> 不传 `folder` 时行为与现状完全一致（头像、打卡照不受影响）。非遗图传 `folder: 'heritage-media'`。
+> 不传 `folder` 时行为与现状完全一致（头像上传不受影响）。非遗图必须显式传 `folder: 'heritage-media'`。
 
 - [ ] **Step 2: 提交**
 
@@ -497,8 +489,8 @@ git commit -m "feat(cloud): photo-center.upload 支持 folder 参数 (P10.1)"
 
 - [ ] **Step 3: 运行全量云端测试确认不退化**
 
-Run: `node --test uniCloud-aliyun/cloudfunctions/`
-Expected: PASS（原 186 测试 + 新增 8 = 194，全绿）
+Run: `node --test "uniCloud-aliyun/cloudfunctions/**/*.test.js"`（Node v24 不接受裸目录形式）
+Expected: PASS（基线 161 + 新增 8 heritage-service = 169，全绿）
 
 ---
 
@@ -939,7 +931,7 @@ git commit -m "docs: P10 非遗内容深化实施结果 (P10.6)"
 9. [ ] 后台编辑已有非遗内容并保存，App F1 刷新后内容更新。
 10. [ ] 后台非遗页遇登录/权限错误显示"去登录"恢复入口。
 11. [ ] 退出登录返回 index 仍走 `navigateBack`，地图不黑屏（§53 回归）。
-12. [ ] `node --test uniCloud-aliyun/cloudfunctions/` 全绿（≥194 测试）。
+12. [ ] `node --test "uniCloud-aliyun/cloudfunctions/**/*.test.js"` 全绿（P10.1 后基线 169；P10.5 补种子测试后 172）。
 
 ---
 
