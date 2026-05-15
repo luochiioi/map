@@ -65,6 +65,12 @@
       "style": {
         "navigationBarTitleText": "非遗内容"
       }
+    },
+    {
+      "path": "pages/heritage/edit",
+      "style": {
+        "navigationBarTitleText": "编辑非遗内容"
+      }
     }
   ],
   "globalStyle": {
