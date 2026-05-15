@@ -90,8 +90,13 @@ const loading = ref<boolean>(true)
 // §45：loadDetail 先声明，再被 onLoad 引用
 async function loadDetail(markerId: number): Promise<void> {
   loading.value = true
-  const result = await fetchHeritageDetail(markerId)
-  detail.value = result
+  try {
+    const result = await fetchHeritageDetail(markerId)
+    detail.value = result
+  } catch (e) {
+    console.error('[heritage-detail] loadDetail failed', e)
+    detail.value = null
+  }
   loading.value = false
 }
 

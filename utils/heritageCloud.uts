@@ -14,34 +14,44 @@ function injectHeritageDefaults(raw: UTSJSONObject): void {
 }
 
 export async function fetchHeritageDetail(markerId: number): Promise<HeritageDetail | null> {
-  const heritageApi = uniCloud.importObject('heritage-center', { customUI: true } as UniCloudImportObjectOptions)
-  const res = await heritageApi.getDetail({ markerId: markerId } as UTSJSONObject) as UTSJSONObject
-  const dataField = res['data']
-  if (dataField == null) return null
-  const rawObj = dataField as UTSJSONObject
-  injectHeritageDefaults(rawObj)
-  const parsed = JSON.parse<HeritageDetail>(JSON.stringify(rawObj))
-  if (parsed == null) return null
-  return parsed
+  try {
+    const heritageApi = uniCloud.importObject('heritage-center', { customUI: true } as UniCloudImportObjectOptions)
+    const res = await heritageApi.getDetail({ markerId: markerId } as UTSJSONObject) as UTSJSONObject
+    const dataField = res['data']
+    if (dataField == null) return null
+    const rawObj = dataField as UTSJSONObject
+    injectHeritageDefaults(rawObj)
+    const parsed = JSON.parse<HeritageDetail>(JSON.stringify(rawObj))
+    if (parsed == null) return null
+    return parsed
+  } catch (e) {
+    console.error('[heritageCloud] fetchHeritageDetail failed', e)
+    return null
+  }
 }
 
 export async function fetchHeritageList(category: string, offset: number, limit: number): Promise<HeritageListItem[]> {
-  const heritageApi = uniCloud.importObject('heritage-center', { customUI: true } as UniCloudImportObjectOptions)
-  const res = await heritageApi.list({ category: category, offset: offset, limit: limit } as UTSJSONObject) as UTSJSONObject
-  const dataField = res['data']
-  if (dataField == null) return [] as HeritageListItem[]
-  const dataObj = dataField as UTSJSONObject
-  const itemsField = dataObj['items']
-  if (itemsField == null) return [] as HeritageListItem[]
-  const arr = itemsField as UTSJSONObject[]
-  const out: HeritageListItem[] = []
-  for (let i = 0; i < arr.length; i++) {
-    const rawObj = arr[i]
-    if (rawObj['summary'] == null) { rawObj['summary'] = '' }
-    if (rawObj['images'] == null) { rawObj['images'] = [] as string[] }
-    if (rawObj['_id'] == null) { rawObj['_id'] = '' }
-    const parsed = JSON.parse<HeritageListItem>(JSON.stringify(rawObj))
-    if (parsed != null) { out.push(parsed) }
+  try {
+    const heritageApi = uniCloud.importObject('heritage-center', { customUI: true } as UniCloudImportObjectOptions)
+    const res = await heritageApi.list({ category: category, offset: offset, limit: limit } as UTSJSONObject) as UTSJSONObject
+    const dataField = res['data']
+    if (dataField == null) return [] as HeritageListItem[]
+    const dataObj = dataField as UTSJSONObject
+    const itemsField = dataObj['items']
+    if (itemsField == null) return [] as HeritageListItem[]
+    const arr = itemsField as UTSJSONObject[]
+    const out: HeritageListItem[] = []
+    for (let i = 0; i < arr.length; i++) {
+      const rawObj = arr[i]
+      if (rawObj['summary'] == null) { rawObj['summary'] = '' }
+      if (rawObj['images'] == null) { rawObj['images'] = [] as string[] }
+      if (rawObj['_id'] == null) { rawObj['_id'] = '' }
+      const parsed = JSON.parse<HeritageListItem>(JSON.stringify(rawObj))
+      if (parsed != null) { out.push(parsed) }
+    }
+    return out
+  } catch (e) {
+    console.error('[heritageCloud] fetchHeritageList failed', e)
+    return [] as HeritageListItem[]
   }
-  return out
 }
