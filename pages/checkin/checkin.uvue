@@ -13,24 +13,6 @@
         <text class="gps-accuracy">{{ locAccText }}</text>
       </view>
     </view>
-    <view class="photo-section">
-      <text class="section-label">照片（选填）</text>
-      <view class="photo-preview">
-        <image v-if="photoPath != null" :src="photoPath" class="photo-image" />
-        <view v-else class="photo-placeholder">
-          <text class="photo-icon">📷</text>
-          <text class="photo-hint">可拍照或从相册选择</text>
-        </view>
-      </view>
-      <view class="photo-actions">
-        <view class="photo-action-btn" @click="choosePhotoFromCamera">
-          <text class="photo-action-text">拍照</text>
-        </view>
-        <view class="photo-action-btn photo-action-secondary" @click="choosePhotoFromAlbum">
-          <text class="photo-action-text secondary">相册</text>
-        </view>
-      </view>
-    </view>
     <view class="note-section">
       <text class="section-label">备注（选填）</text>
       <textarea class="note-input" v-model="note" placeholder="记录此刻的心情..." placeholder-class="note-placeholder" maxlength="200" />
@@ -56,8 +38,6 @@ import type { CheckinMarker } from '@/types/marker'
 
 const markerId = ref<number>(0)
 const markerTitle = ref<string>('')
-const photoPath = ref<string | null>(null)
-const cloudURL = ref<string | null>(null)
 const note = ref<string>('')
 const isSubmitting = ref<boolean>(false)
 const preflightAt = ref<number>(0)
@@ -142,7 +122,6 @@ function isBusinessCheckinFailure(errMsg: string): boolean {
 function enqueueCheckinForLater(): void {
   const payload = JSON.parse('{}') as UTSJSONObject
   payload["markerId"] = markerId.value
-  payload["photoCloudURL"] = cloudURL.value
   payload["note"] = note.value
   payload["latitude"] = currentLocation.value?.latitude
   payload["longitude"] = currentLocation.value?.longitude
@@ -178,25 +157,6 @@ onHide((): void => {
   stopPolling()
 })
 
-function choosePhoto(sourceType: string[]): void {
-  uni.chooseImage({
-    count: 1, sizeType: ['compressed'], sourceType: sourceType,
-    success: (imgRes: ChooseImageSuccess): void => {
-      if (imgRes.tempFilePaths.length > 0) {
-        photoPath.value = imgRes.tempFilePaths[0]
-      }
-    }
-  })
-}
-
-function choosePhotoFromCamera(): void {
-  choosePhoto(['camera'])
-}
-
-function choosePhotoFromAlbum(): void {
-  choosePhoto(['album'])
-}
-
 async function doSubmit(): Promise<void> {
   if (userState.userInfo == null) {
     uni.showToast({ title: '请先登录后再打卡', icon: 'none' })
@@ -207,19 +167,6 @@ async function doSubmit(): Promise<void> {
 
   try {
     const currentUid = await refreshUserIdFromAuth()
-    if (photoPath.value != null) {
-      try {
-        const fs = uni.getFileSystemManager()
-        const base64Data = fs.readFileSync(photoPath.value, 'base64') as string
-        const photoApi = uniCloud.importObject('photo-center')
-        const uploadRes = await photoApi.upload({
-          fileContent: base64Data,
-          fileName: `checkin_${Date.now()}.jpg`
-        }) as UTSJSONObject
-        const uploadData = uploadRes["data"] as UTSJSONObject
-        cloudURL.value = uploadData["cloudURL"] as string
-      } catch (e) { console.log('Photo upload failed', e) }
-    }
 
     // 提升到 try 外让成功路径之后还能读到 data.completedRoutes（P4）
     let checkinResult: UTSJSONObject | null = null
@@ -227,7 +174,6 @@ async function doSubmit(): Promise<void> {
       const markerApi = uniCloud.importObject('marker-center', { customUI: true } as UniCloudImportObjectOptions)
       const checkinRes = await markerApi.checkin({
         markerId: markerId.value,
-        photoCloudURL: cloudURL.value,
         note: note.value != '' ? note.value : null,
         latitude: currentLocation.value?.latitude,
         longitude: currentLocation.value?.longitude
@@ -267,7 +213,7 @@ async function doSubmit(): Promise<void> {
     }
 
     const userId = currentUid != null ? currentUid : (userState.userInfo != null ? userState.userInfo!!.userId : null)
-    const updatedMarker = await doCheckIn(markerId.value, photoPath.value, note.value != '' ? note.value : null, userId, cloudURL.value)
+    const updatedMarker = await doCheckIn(markerId.value, note.value != '' ? note.value : null, userId)
     const completed = checkTaskCompletion(marker.value)
     // 主地图 onShow 调 consumeFocus()，移到打卡完成的点并打开详情面板，
     // 用户回到地图能立即看到刚刚打卡的成果。
@@ -316,18 +262,7 @@ async function doSubmit(): Promise<void> {
 .out-range .gps-label { color: #e74c3c; }
 .gps-distance { font-size: 36rpx; font-weight: bold; color: #333333; }
 .gps-accuracy { font-size: 24rpx; color: #888888; }
-.photo-section { padding: 0 32rpx 24rpx; }
 .section-label { font-size: 26rpx; color: #666666; margin-bottom: 12rpx; }
-.photo-preview { width: 200rpx; height: 200rpx; border-radius: 24rpx; overflow: hidden; background-color: #ffffff; border: 2rpx dashed #cccccc; display: flex; align-items: center; justify-content: center; }
-.photo-image { width: 100%; height: 100%; }
-.photo-placeholder { display: flex; flex-direction: column; align-items: center; }
-.photo-icon { font-size: 48rpx; }
-.photo-hint { font-size: 22rpx; color: #999999; }
-.photo-actions { display: flex; flex-direction: row; margin-top: 16rpx; }
-.photo-action-btn { width: 168rpx; height: 64rpx; border-radius: 32rpx; background-color: #2ecc71; display: flex; align-items: center; justify-content: center; margin-right: 16rpx; }
-.photo-action-secondary { background-color: #eef2f3; }
-.photo-action-text { font-size: 26rpx; color: #ffffff; font-weight: 500; }
-.photo-action-text.secondary { color: #5f6f65; }
 .note-section { padding: 0 32rpx 24rpx; }
 .note-label { font-size: 26rpx; color: #666666; margin-bottom: 12rpx; }
 .note-input { width: 100%; height: 160rpx; background-color: #ffffff; border-radius: 12rpx; padding: 20rpx; font-size: 28rpx; color: #333333; box-sizing: border-box; }

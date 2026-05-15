@@ -4,16 +4,15 @@ import type { CheckinMarker } from '@/types/marker'
 import { checkedMarkers, totalCount } from './useMarkerStore'
 import { totalTaskCount, completedTaskCount } from './useTaskStore'
 
+// P9-1: 移除"摄影师"成就 — 打卡不再支持上传照片
 export function getAchievements(): Achievement[] {
   const done = checkedMarkers.value as CheckinMarker[]
-  const photo = done.filter((m: CheckinMarker): boolean => { return m.photoPath != null }) as CheckinMarker[]
   const userCreated = Math.max(0, totalCount.value - 8)
   return [
     { id: 'first',   icon: 'L1', name: '初探者',  desc: '完成首次打卡',    unlocked: done.length >= 1 },
     { id: 'three',   icon: 'L2', name: '探索者',   desc: '打卡 3 个地点',   unlocked: done.length >= 3 },
     { id: 'five',    icon: 'L3', name: '冒险家',   desc: '打卡 5 个地点',   unlocked: done.length >= 5 },
     { id: 'ten',     icon: 'L4', name: '传奇旅人', desc: '打卡 10 个地点',  unlocked: done.length >= 10 },
-    { id: 'photo',   icon: 'L5', name: '摄影师',   desc: '3 次带照片打卡',  unlocked: photo.length >= 3 },
     { id: 'create',  icon: 'L6', name: '创建者',   desc: '创建 5 个打卡点', unlocked: userCreated >= 5 },
     { id: 'alltask', icon: 'L7', name: '全勤达人', desc: '完成所有任务', unlocked: totalTaskCount.value > 0 && completedTaskCount.value === totalTaskCount.value },
   ]

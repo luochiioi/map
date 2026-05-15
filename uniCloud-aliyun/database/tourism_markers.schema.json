@@ -22,7 +22,6 @@
         "properties": {
           "userId": { "bsonType": "string", "description": "打卡用户ID" },
           "checkedAt": { "bsonType": "timestamp", "description": "打卡时间" },
-          "photoCloudURL": { "bsonType": "string", "description": "打卡照片云存储URL" },
           "note": { "bsonType": "string", "maxLength": 200 }
         }
       },

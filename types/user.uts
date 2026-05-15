@@ -13,7 +13,6 @@ export type User = {
   avatar: string | null           // 头像云存储 URL
   role: UserRole
   totalCheckins: number           // 累计打卡次数
-  totalPhotos: number             // 累计带照片打卡数
   createdAt: number               // 注册时间戳（毫秒）
 }
 

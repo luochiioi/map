@@ -24,11 +24,8 @@ function buildAuditLogEntry(input) {
     targetUid: s(raw.targetUid),
     markerId: n(raw.markerId),
     markerTitle: s(raw.markerTitle),
-    photoCloudURL: raw.photoCloudURL ? s(raw.photoCloudURL) : null,
     checkedAt: n(raw.checkedAt),
     reason: s(raw.reason),
-    purgePhoto: raw.purgePhoto === true,
-    purgeError: s(raw.purgeError),
     occurredAt
   }
 }

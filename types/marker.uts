@@ -3,14 +3,15 @@
 // 重命名: 原 Marker → CheckinMarker，避免与腾讯地图插件 uts.sdk.modules.DCloudUniMapTencent.Marker 类型冲突
 
 // 单条打卡记录（云端 tourism_markers.checkedBy[] 元素）
+// P9-1: 移除 photoCloudURL — 打卡不再支持上传照片，仅保留 GPS + 可选备注
 export type CheckinEntry = {
   userId: string                   // 打卡用户的 uni-id uid
   checkedAt: number                // 打卡时间戳（毫秒）
-  photoCloudURL: string | null    // 打卡照片云端 URL
   note: string | null              // 打卡备注
   repaired?: boolean               // true 表示由历史本地记录补传
 }
 
+// P9-1: 移除 photoPath / photoCloudURL — 打卡不再支持上传照片
 export type CheckinMarker = {
   id: number              // 唯一 ID（新标记用 Date.now()）
   _id: string             // 字符串 ID（uniCloud 主键 / 兼容旧数据）
@@ -22,8 +23,6 @@ export type CheckinMarker = {
   height: number          // 标记高度（默认 36）
   iconPath: string        // 标记图标路径（本地静态资源）
   checkedAt: number | null    // 打卡时间戳（毫秒）
-  photoPath: string | null    // 打卡照片本地路径
-  photoCloudURL: string | null // 打卡照片云端 URL（云对象上传后回填）
   note: string | null         // 打卡备注（最多 200 字）
   createdAt: number       // 创建时间戳（毫秒）
   createdBy: string | null    // 创建者 userId（关联 uni-id 的 uid）

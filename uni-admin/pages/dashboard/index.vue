@@ -76,12 +76,6 @@
           <text class="checkin-count">{{ formatTime(record.checkedAt) }}</text>
         </view>
         <view class="checkin-body">
-          <image
-            v-if="record.photoCloudURL"
-            :src="record.photoCloudURL"
-            class="checkin-photo"
-            mode="aspectFill"
-          />
           <view class="checkin-meta">
             <text class="entry-user">{{ record.userName || record.userId || '匿名' }}</text>
             <text class="entry-note">{{ record.note ? record.note : '--' }}</text>
@@ -322,14 +316,6 @@ function goToTaskRecords() {
   align-items: flex-start;
   gap: 16rpx;
   padding: 4rpx 0;
-}
-
-.checkin-photo {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 12rpx;
-  background-color: #eef0f2;
-  flex-shrink: 0;
 }
 
 .checkin-meta {

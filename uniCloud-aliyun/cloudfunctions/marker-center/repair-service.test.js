@@ -24,14 +24,12 @@ test('buildRepairCheckinEntry ignores client userId and marks the row as repaire
   const entry = buildRepairCheckinEntry({
     userId: 'attacker',
     checkedAt: 123,
-    photoCloudURL: 'cloud://photo.jpg',
     note: '历史记录'
   }, 'real-uid', 999)
 
   assert.deepEqual(entry, {
     userId: 'real-uid',
     checkedAt: 123,
-    photoCloudURL: 'cloud://photo.jpg',
     note: '历史记录',
     repaired: true
   })
@@ -56,7 +54,6 @@ test('createRepairCheckinPlan is idempotent for markerId plus uid', () => {
   assert.deepEqual(plan.entry, {
     userId: 'uid-b',
     checkedAt: 150,
-    photoCloudURL: null,
     note: null,
     repaired: true
   })
@@ -67,9 +64,9 @@ test('createDeleteCheckinPlan removes only the authenticated uid and recounts sa
     checked: true,
     checkinCount: 5,
     checkedBy: [
-      { userId: 'uid-a', checkedAt: 100, photoCloudURL: 'a.jpg' },
-      { userId: 'uid-b', checkedAt: 200, photoCloudURL: 'b.jpg' },
-      { userId: 'uid-a', checkedAt: 300, photoCloudURL: 'a2.jpg' }
+      { userId: 'uid-a', checkedAt: 100 },
+      { userId: 'uid-b', checkedAt: 200 },
+      { userId: 'uid-a', checkedAt: 300 }
     ]
   }
 
@@ -80,7 +77,7 @@ test('createDeleteCheckinPlan removes only the authenticated uid and recounts sa
     checked: true,
     checkinCount: 1,
     checkedBy: [
-      { userId: 'uid-b', checkedAt: 200, photoCloudURL: 'b.jpg' }
+      { userId: 'uid-b', checkedAt: 200 }
     ]
   })
 })

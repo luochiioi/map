@@ -8,16 +8,15 @@ async function loadModule() {
 test('normalizeCheckinGroups groups legacy flat records by marker', async () => {
   const { normalizeCheckinGroups } = await loadModule()
   const groups = normalizeCheckinGroups([
-    { markerDocId: 'm1', markerId: 1, markerTitle: '北京交通大学', userId: 'u1', userName: '阿丽', checkedAt: 100, photoCloudURL: 'a.jpg' },
-    { markerDocId: 'm1', markerId: 1, markerTitle: '北京交通大学', userId: 'u2', checkedAt: 300, photoCloudURL: 'b.jpg' },
-    { markerDocId: 'm2', markerId: 2, markerTitle: '澳门大三巴', userId: 'u3', checkedAt: 200, photoCloudURL: null }
+    { markerDocId: 'm1', markerId: 1, markerTitle: '北京交通大学', userId: 'u1', userName: '阿丽', checkedAt: 100 },
+    { markerDocId: 'm1', markerId: 1, markerTitle: '北京交通大学', userId: 'u2', checkedAt: 300 },
+    { markerDocId: 'm2', markerId: 2, markerTitle: '澳门大三巴', userId: 'u3', checkedAt: 200 }
   ])
 
   assert.equal(groups.length, 2)
   assert.equal(groups[0].markerTitle, '北京交通大学')
   assert.equal(groups[0].recordCount, 2)
   assert.deepEqual(groups[0].records.map(item => item.userId), ['u2', 'u1'])
-  assert.equal(groups[0].records[0].photoCloudURL, 'b.jpg')
   assert.equal(groups[0].records[1].userName, '阿丽')
 })
 

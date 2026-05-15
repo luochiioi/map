@@ -120,8 +120,8 @@ test('flattenCheckinRecords returns records sorted by newest checkin first', () 
       latitude: 39.9163,
       longitude: 116.3972,
       checkedBy: [
-        { userId: 'u1', checkedAt: 100, photoCloudURL: 'a.jpg', note: '早' },
-        { userId: 'u2', checkedAt: 300, photoCloudURL: null, note: null }
+        { userId: 'u1', checkedAt: 100, note: '早' },
+        { userId: 'u2', checkedAt: 300, note: null }
       ]
     },
     {
@@ -131,7 +131,7 @@ test('flattenCheckinRecords returns records sorted by newest checkin first', () 
       latitude: 31.1465,
       longitude: 121.6593,
       checkedBy: [
-        { userId: 'u3', checkedAt: 200, photoCloudURL: 'b.jpg', note: '中' }
+        { userId: 'u3', checkedAt: 200, note: '中' }
       ]
     }
   ], userLookup)
@@ -140,7 +140,6 @@ test('flattenCheckinRecords returns records sorted by newest checkin first', () 
   assert.equal(records[0].markerId, 1)
   assert.equal(records[0].markerTitle, '北京故宫')
   assert.equal(records[0].userName, 'bob')
-  assert.equal(records[1].photoCloudURL, 'b.jpg')
   assert.equal(records[2].userName, '阿丽')
 })
 
@@ -176,8 +175,8 @@ test('groupCheckinRecordsByMarker returns one group per marker with nested recor
       longitude: 116.3972,
       checkinCount: 2,
       checkedBy: [
-        { userId: 'u1', checkedAt: 100, photoCloudURL: 'a.jpg', note: '早' },
-        { userId: 'u2', checkedAt: 300, photoCloudURL: null, note: null }
+        { userId: 'u1', checkedAt: 100, note: '早' },
+        { userId: 'u2', checkedAt: 300, note: null }
       ]
     },
     {
@@ -188,7 +187,7 @@ test('groupCheckinRecordsByMarker returns one group per marker with nested recor
       longitude: 121.6593,
       checkinCount: 1,
       checkedBy: [
-        { userId: 'u3', checkedAt: 200, photoCloudURL: 'b.jpg', note: '中', repaired: true }
+        { userId: 'u3', checkedAt: 200, note: '中', repaired: true }
       ]
     }
   ], userLookup)
@@ -333,14 +332,14 @@ test('normalizeAdminUsers reads accounts from uni-id-users and merges profile st
     {
       createdBy: 'uid-2',
       checkedBy: [
-        { userId: 'uid-1', photoCloudURL: 'a.jpg' },
-        { userId: 'uid-2', photoCloudURL: null }
+        { userId: 'uid-1' },
+        { userId: 'uid-2' }
       ]
     },
     {
       createdBy: 'uid-2',
       checkedBy: [
-        { userId: 'uid-1', photoCloudURL: null }
+        { userId: 'uid-1' }
       ]
     }
   ])
@@ -362,8 +361,7 @@ test('normalizeAdminUsers reads accounts from uni-id-users and merges profile st
   ], [
     {
       userId: 'uid-1',
-      totalCheckins: 3,
-      totalPhotos: 2
+      totalCheckins: 3
     },
     {
       userId: 'other-user',
@@ -380,7 +378,6 @@ test('normalizeAdminUsers reads accounts from uni-id-users and merges profile st
       role: 'admin',
       totalCheckins: 3,
       activeCheckins: 2,
-      totalPhotos: 2,
       totalRewardPoints: 0,
       claimedRewardPoints: 0,
       pendingRewardPoints: 0,
@@ -398,7 +395,6 @@ test('normalizeAdminUsers reads accounts from uni-id-users and merges profile st
       role: ['user'],
       totalCheckins: 1,
       activeCheckins: 1,
-      totalPhotos: 0,
       totalRewardPoints: 0,
       claimedRewardPoints: 0,
       pendingRewardPoints: 0,
@@ -416,7 +412,7 @@ test('deriveActiveCheckinsFromMarkers counts current checkedBy records per user'
     {
       id: 1,
       checkedBy: [
-        { userId: 'uid-1', checkedAt: 100, photoCloudURL: 'a.jpg' },
+        { userId: 'uid-1', checkedAt: 100 },
         { userId: 'uid-2', checkedAt: 200 }
       ]
     },
@@ -424,7 +420,7 @@ test('deriveActiveCheckinsFromMarkers counts current checkedBy records per user'
       id: 2,
       checkedBy: [
         { userId: 'uid-1', checkedAt: 300 },
-        { userId: 'uid-3', checkedAt: 400, photoCloudURL: 'c.jpg' }
+        { userId: 'uid-3', checkedAt: 400 }
       ]
     },
     {
@@ -434,7 +430,6 @@ test('deriveActiveCheckinsFromMarkers counts current checkedBy records per user'
   ])
 
   assert.equal(activeStats.get('uid-1').activeCheckins, 2)
-  assert.equal(activeStats.get('uid-1').totalPhotos, 1)
   assert.equal(activeStats.get('uid-2').activeCheckins, 1)
   assert.equal(activeStats.get('uid-3').activeCheckins, 1)
   assert.equal(activeStats.has('missing-user'), false)
@@ -444,8 +439,8 @@ test('normalizeAdminUsers exposes activeCheckins separately from cumulative tota
   const activeStats = deriveActiveCheckinsFromMarkers([
     {
       checkedBy: [
-        { userId: 'uid-1', photoCloudURL: 'a.jpg' },
-        { userId: 'uid-2', photoCloudURL: null }
+        { userId: 'uid-1' },
+        { userId: 'uid-2' }
       ]
     }
   ])
@@ -455,13 +450,12 @@ test('normalizeAdminUsers exposes activeCheckins separately from cumulative tota
     { _id: 'uid-2', username: 'bob', nickname: 'Bob' },
     { _id: 'uid-3', username: 'cara', nickname: 'Cara' }
   ], [
-    { userId: 'uid-1', totalCheckins: 5, totalPhotos: 3 },
-    { userId: 'uid-3', totalCheckins: 7, totalPhotos: 2 }
+    { userId: 'uid-1', totalCheckins: 5 },
+    { userId: 'uid-3', totalCheckins: 7 }
   ], activeStats)
 
   assert.equal(users[0].totalCheckins, 5)
   assert.equal(users[0].activeCheckins, 1)
-  assert.equal(users[0].totalPhotos, 3)
   assert.equal(Object.prototype.hasOwnProperty.call(users[0], 'totalCreated'), false)
   assert.equal(users[1].totalCheckins, 1)
   assert.equal(users[1].activeCheckins, 1)

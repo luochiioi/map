@@ -164,7 +164,6 @@ test('toPublicProfile masks contact info and exposes public stats only', () => {
       nickname: 'Alice',
       avatar: 'cloud://avatars/1.jpg',
       totalCheckins: 12,
-      totalPhotos: 7,
       email: 'alice@example.com',
       mobile: '13800000000'
     },
@@ -176,7 +175,6 @@ test('toPublicProfile masks contact info and exposes public stats only', () => {
     nickname: 'Alice',
     avatar: 'cloud://avatars/1.jpg',
     totalCheckins: 12,
-    totalPhotos: 7,
     completedRoutes: 3
   })
   assert.equal(profile.email, undefined)
@@ -190,7 +188,6 @@ test('toPublicProfile defaults missing fields to safe zeros', () => {
     nickname: '',
     avatar: '',
     totalCheckins: 0,
-    totalPhotos: 0,
     completedRoutes: 0
   })
 })

@@ -118,11 +118,8 @@ async function appendUserDeleteAudit(input) {
     targetUid: input.actorUid,
     markerId: input.markerId,
     markerTitle: input.markerTitle,
-    photoCloudURL: input.photoCloudURL,
     checkedAt: input.checkedAt,
     reason: '',
-    purgePhoto: false,
-    purgeError: '',
     occurredAt: Date.now()
   })
 }
@@ -134,11 +131,8 @@ async function appendClaimRewardAudit(input) {
     targetUid: input.actorUid,
     markerId: null,
     markerTitle: '',
-    photoCloudURL: null,
     checkedAt: null,
     reason: `reward:${String(input.rewardId || '')}`,
-    purgePhoto: false,
-    purgeError: '',
     occurredAt: Date.now()
   })
 }
@@ -176,7 +170,7 @@ module.exports = {
 
   async checkin(data) {
     if (!this.auth.uid) return { errCode: -1, errMsg: '请先登录' }
-    const { markerId, photoCloudURL, note, latitude, longitude } = data
+    const { markerId, note, latitude, longitude } = data
 
     const markerRes = await col.where({ id: markerId }).get()
     if (!markerRes.data.length) return { errCode: -1, errMsg: '打卡点不存在' }
@@ -193,7 +187,6 @@ module.exports = {
     const checkedEntry = {
       userId: this.auth.uid,
       checkedAt: Date.now(),
-      photoCloudURL: photoCloudURL || null,
       note: note || null
     }
     await col.where({ id: markerId }).update({
@@ -204,8 +197,7 @@ module.exports = {
     })
 
     await incrementUserStats(this.auth.uid, {
-      totalCheckins: 1,
-      totalPhotos: photoCloudURL ? 1 : 0
+      totalCheckins: 1
     })
 
     const completedTasks = await checkTasksForMarker(this.auth.uid, marker)
@@ -238,8 +230,7 @@ module.exports = {
     })
 
     await incrementUserStats(this.auth.uid, {
-      totalCheckins: 1,
-      totalPhotos: plan.entry.photoCloudURL ? 1 : 0
+      totalCheckins: 1
     })
 
     const completedTasks = await checkTasksForMarker(this.auth.uid, marker)
@@ -257,7 +248,7 @@ module.exports = {
     if (!markerRes.data.length) return { errCode: -1, errMsg: '打卡点不存在' }
     const marker = markerRes.data[0]
 
-    // 抓取自己这一条 entry 的 photoCloudURL / checkedAt 用于审计；
+    // 抓取自己这一条 entry 的 checkedAt 用于审计；
     // createDeleteCheckinPlan 之后 checkedBy 里就没这条了。
     const myEntry = (marker.checkedBy || []).find(entry =>
       entry && String(entry.userId || '') === String(this.auth.uid)
@@ -279,7 +270,6 @@ module.exports = {
       actorUid: this.auth.uid,
       markerId: marker.id,
       markerTitle: marker.title,
-      photoCloudURL: myEntry && myEntry.photoCloudURL ? myEntry.photoCloudURL : null,
       checkedAt: myEntry && myEntry.checkedAt != null ? myEntry.checkedAt : null
     })
 
@@ -365,7 +355,6 @@ module.exports = {
           longitude: marker.longitude,
           iconPath: marker.iconPath || '/static/marker_default.png',
           checkedAt: entry.checkedAt || 0,
-          photoCloudURL: entry.photoCloudURL || null,
           note: entry.note || null,
           repaired: entry.repaired === true,
           routes: routesForMarker
@@ -842,7 +831,6 @@ async function incrementUserStats(userId, increments) {
     await colUserProfiles.add({
       userId,
       totalCheckins: Number(increments.totalCheckins || 0),
-      totalPhotos: Number(increments.totalPhotos || 0),
       createdAt: now,
       updatedAt: now
     })
@@ -851,7 +839,6 @@ async function incrementUserStats(userId, increments) {
 
   const updates = { updatedAt: now }
   if (increments.totalCheckins) updates.totalCheckins = db.command.inc(increments.totalCheckins)
-  if (increments.totalPhotos) updates.totalPhotos = db.command.inc(increments.totalPhotos)
   await colUserProfiles.doc(existing.data[0]._id).update(updates)
 }
 

@@ -79,26 +79,24 @@
 
         <view class="my-checkin panel-skeleton" v-if="panelDetailsLoading">
           <text class="section-label">详情更新中</text>
-          <text class="skeleton-text">正在加载最近打卡和照片...</text>
+          <text class="skeleton-text">正在加载最近打卡...</text>
         </view>
 
         <view class="my-checkin" v-if="panelDetailsLoading == false && myCheckin != null">
           <text class="section-label">我的打卡</text>
-          <image v-if="myCheckin!!.photoCloudURL != null" :src="myCheckin!!.photoCloudURL!!" class="my-photo" mode="aspectFill" />
           <text class="my-note" v-if="myCheckin!!.note != null">{{ myCheckin!!.note }}</text>
           <text class="my-time">{{ fmtTime(myCheckin!!.checkedAt) }}</text>
         </view>
 
-        <view class="other-checkins panel-skeleton" v-if="panelDetailsLoading && visibleOtherCheckinsWithPhoto.length == 0">
-          <text class="section-label">照片足迹</text>
-          <text class="skeleton-text">正在同步照片...</text>
+        <view class="other-checkins panel-skeleton" v-if="panelDetailsLoading && visibleOtherCheckins.length == 0">
+          <text class="section-label">他人足迹</text>
+          <text class="skeleton-text">正在同步打卡记录...</text>
         </view>
 
-        <view class="other-checkins" v-if="visibleOtherCheckinsWithPhoto.length > 0">
+        <view class="other-checkins" v-if="visibleOtherCheckins.length > 0">
           <text class="section-label">{{ otherFootprintLabel }}</text>
-          <view class="other-grid">
-            <view v-for="e in visibleOtherCheckinsWithPhoto" :key="e.userId + '_' + e.checkedAt" class="other-card">
-              <image :src="e.photoCloudURL!!" class="other-photo" mode="aspectFill" />
+          <view class="other-list">
+            <view v-for="e in visibleOtherCheckins" :key="e.userId + '_' + e.checkedAt" class="other-row">
               <text class="other-time">{{ fmtTime(e.checkedAt) }}</text>
             </view>
           </view>
@@ -138,7 +136,7 @@ import { parseRouteDeepLink, type RouteDeepLink } from '@/utils/deepLink'
 import { getUnreadCount as getNotifUnread } from '@/utils/notificationCloud'
 
 const LOCATE_SCALE: number = 17
-const OTHER_FOOTPRINT_PHOTO_LIMIT: number = 12
+const OTHER_FOOTPRINT_LIMIT: number = 12
 let hasCenteredOnUser: boolean = false
 const panelDetailsLoading = ref<boolean>(false)
 const notifUnread = ref<number>(0)
@@ -250,8 +248,6 @@ function buildFocusSnapshot(payload: FocusPayload): CheckinMarker {
     height: 36,
     iconPath: '/static/marker_default.png',
     checkedAt: null,
-    photoPath: null,
-    photoCloudURL: null,
     note: null,
     createdAt: Date.now(),
     createdBy: null,
@@ -328,19 +324,15 @@ const otherCheckins = computed((): CheckinEntry[] => {
   return list.filter((e: CheckinEntry): boolean => e.userId != myId)
 })
 
-const otherCheckinsWithPhoto = computed((): CheckinEntry[] => {
-  return otherCheckins.value.filter((e: CheckinEntry): boolean => e.photoCloudURL != null)
-})
-
-const visibleOtherCheckinsWithPhoto = computed((): CheckinEntry[] => {
-  return otherCheckinsWithPhoto.value.slice(0, OTHER_FOOTPRINT_PHOTO_LIMIT)
+// P9-1: 打卡不再带照片，"他人足迹"改为按打卡时间展示最近 N 条
+const visibleOtherCheckins = computed((): CheckinEntry[] => {
+  return otherCheckins.value.slice(0, OTHER_FOOTPRINT_LIMIT)
 })
 
 const otherFootprintLabel = computed((): string => {
   const total = otherCheckins.value.length
-  const photoTotal = otherCheckinsWithPhoto.value.length
-  if (photoTotal > OTHER_FOOTPRINT_PHOTO_LIMIT) {
-    return '他人足迹（' + total.toString() + '，展示前 ' + OTHER_FOOTPRINT_PHOTO_LIMIT.toString() + ' 张照片）'
+  if (total > OTHER_FOOTPRINT_LIMIT) {
+    return '他人足迹（' + total.toString() + '，展示最近 ' + OTHER_FOOTPRINT_LIMIT.toString() + ' 条）'
   }
   return '他人足迹（' + total.toString() + '）'
 })
@@ -743,12 +735,6 @@ function doDelete(): void {
   display: flex;
   flex-direction: column;
 }
-.my-photo {
-  width: 100%;
-  height: 320rpx;
-  border-radius: 16rpx;
-  background-color: #e8ece8;
-}
 .my-note {
   margin-top: 14rpx;
   font-size: 26rpx;
@@ -763,27 +749,16 @@ function doDelete(): void {
 .other-checkins {
   margin-top: 24rpx;
 }
-.other-grid {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-}
-.other-card {
-  width: 210rpx;
-  margin-right: 16rpx;
-  margin-bottom: 16rpx;
+.other-list {
   display: flex;
   flex-direction: column;
 }
-.other-photo {
-  width: 210rpx;
-  height: 210rpx;
-  border-radius: 16rpx;
-  background-color: #e8ece8;
+.other-row {
+  padding: 12rpx 0;
+  border-bottom: 1rpx solid #f0f2f0;
 }
 .other-time {
-  margin-top: 8rpx;
-  font-size: 20rpx;
+  font-size: 24rpx;
   color: #999999;
 }
 .panel-actions {

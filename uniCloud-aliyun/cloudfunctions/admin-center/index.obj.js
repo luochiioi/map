@@ -366,9 +366,6 @@ module.exports = {
   // 后台管理员删除单条打卡记录。前端要传 markerId 或 _id，外加要删的 userId
   // 与 checkedAt（毫秒时间戳）；服务端只信入参作为定位条件，不允许传整个
   // checkedBy[] 覆盖。第一版只动 tourism_markers，不回滚 user_tasks/rewards。
-  // P3.4 新增可选 purgePhoto: boolean —— 同步调用 photo-center.deletePhoto 物理
-  // 清理云存储照片；物理删除失败不影响数据库删除成功的语义，仅在响应里携带
-  // purgeError 字段供审计日志后续记录。
   async deleteCheckinRecord(data) {
     const payload = data || {}
     const targetUserId = String(payload.userId || '').trim()
@@ -377,7 +374,6 @@ module.exports = {
     if (targetCheckedAt == null || !Number.isFinite(targetCheckedAt)) {
       return fail('缺少 checkedAt 时间戳')
     }
-    const purgePhoto = payload.purgePhoto === true
 
     const markerDocId = payload._id
     const markerId = payload.markerId
@@ -391,13 +387,6 @@ module.exports = {
     }
     if (!markerRes.data.length) return fail('打卡点不存在')
     const marker = markerRes.data[0]
-
-    // 在落库前抓 entry 上的 photoCloudURL，这样 purgePhoto 才有 URL 可清。
-    const originalEntry = (marker.checkedBy || []).find(entry =>
-      entry && String(entry.userId || '') === targetUserId &&
-      Number(entry.checkedAt) === targetCheckedAt
-    )
-    const photoCloudURL = originalEntry && originalEntry.photoCloudURL ? String(originalEntry.photoCloudURL) : ''
 
     const plan = createDeleteCheckinRecordPlan(marker, {
       userId: targetUserId,
@@ -414,39 +403,20 @@ module.exports = {
       updatedAt: Date.now()
     })
 
-    let photoPurged = false
-    let purgeError = ''
-    if (purgePhoto && photoCloudURL.length > 0) {
-      try {
-        const photoApi = uniCloud.importObject('photo-center')
-        const purgeRes = await photoApi.deletePhoto({ cloudURL: photoCloudURL })
-        const purgeData = (purgeRes && purgeRes.data) || {}
-        photoPurged = purgeData.deleted === true
-        if (!photoPurged) purgeError = purgeData.errMsg || purgeRes.errMsg || '物理删除失败'
-      } catch (e) {
-        purgeError = (e && e.message) || '物理删除异常'
-      }
-    }
-
     await appendAuditLog({
       type: 'admin.deleteCheckinRecord',
       actorUid: this.auth.uid,
       targetUid: targetUserId,
       markerId: marker.id,
       markerTitle: marker.title,
-      photoCloudURL: photoCloudURL || null,
       checkedAt: targetCheckedAt,
-      reason: String(payload.reason || ''),
-      purgePhoto,
-      purgeError
+      reason: String(payload.reason || '')
     })
 
     return ok({
       deleted: true,
       removedCount: plan.removedCount,
-      checkinCount: plan.checkinCount,
-      photoPurged,
-      purgeError
+      checkinCount: plan.checkinCount
     }, '删除成功')
   },
 
@@ -518,11 +488,8 @@ module.exports = {
       targetUid: targetId,
       markerId: null,
       markerTitle: target.username || target.nickname || '',
-      photoCloudURL: null,
       checkedAt: null,
-      reason: String((data && data.reason) || ''),
-      purgePhoto: false,
-      purgeError: ''
+      reason: String((data && data.reason) || '')
     })
 
     return ok({
@@ -560,11 +527,8 @@ module.exports = {
       targetName: resolveLookupName(userLookup, row.targetUid),
       markerId: row.markerId,
       markerTitle: row.markerTitle,
-      photoCloudURL: row.photoCloudURL,
       checkedAt: row.checkedAt,
       reason: row.reason,
-      purgePhoto: row.purgePhoto === true,
-      purgeError: row.purgeError || '',
       occurredAt: row.occurredAt
     }))
     return ok({ list, total: totalRes.total, offset, limit })

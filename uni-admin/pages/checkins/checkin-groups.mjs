@@ -9,7 +9,6 @@ function normalizeRecord(record) {
     userId,
     userName: record.userName || userId,
     checkedAt: record.checkedAt || 0,
-    photoCloudURL: record.photoCloudURL || null,
     note: record.note || null,
     repaired: record.repaired === true
   }

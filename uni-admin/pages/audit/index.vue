@@ -38,11 +38,6 @@
       <text v-if="row.markerTitle" class="card-row">打卡点：{{ row.markerTitle }}<text v-if="row.markerId != null"> · #{{ row.markerId }}</text></text>
       <text v-if="row.checkedAt" class="card-row">原打卡时间：{{ formatTime(row.checkedAt) }}</text>
       <text v-if="row.reason" class="card-row">原因：{{ row.reason }}</text>
-      <view v-if="row.purgePhoto" class="card-row purge-row">
-        <text v-if="row.purgeError" class="purge-fail">物理删图失败：{{ row.purgeError }}</text>
-        <text v-else class="purge-ok">已物理删除照片</text>
-      </view>
-      <text v-if="row.photoCloudURL" class="card-photo-url">{{ row.photoCloudURL }}</text>
     </view>
 
     <view v-if="hasMore" class="load-more" @click="fetchData">
@@ -232,14 +227,4 @@ function formatTime(ts) {
 .card-time { font-size: 22rpx; color: #aaa; }
 .card-row  { font-size: 24rpx; color: #555; }
 
-.purge-row { margin-top: 4rpx; }
-.purge-ok  { font-size: 22rpx; color: #1f7a45; }
-.purge-fail{ font-size: 22rpx; color: #d93026; }
-
-.card-photo-url {
-  font-size: 20rpx;
-  color: #aaa;
-  font-family: monospace;
-  word-break: break-all;
-}
 </style>

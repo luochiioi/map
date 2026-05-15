@@ -9,7 +9,6 @@ export type FriendProfile = {
   nickname: string
   avatar: string
   totalCheckins: number
-  totalPhotos: number
   completedRoutes: number
 }
 

@@ -15,11 +15,8 @@ test('buildAuditLogEntry normalizes admin.deleteCheckinRecord row', () => {
     targetUid: 'user-2',
     markerId: '7',
     markerTitle: ' 故宫 ',
-    photoCloudURL: 'cloud://x/checkin-photos/user-2/p.jpg',
     checkedAt: 1700000000000,
     reason: '违规内容',
-    purgePhoto: true,
-    purgeError: '',
     occurredAt: 1800000000000
   })
 
@@ -29,11 +26,8 @@ test('buildAuditLogEntry normalizes admin.deleteCheckinRecord row', () => {
     targetUid: 'user-2',
     markerId: 7,
     markerTitle: ' 故宫 ',
-    photoCloudURL: 'cloud://x/checkin-photos/user-2/p.jpg',
     checkedAt: 1700000000000,
     reason: '违规内容',
-    purgePhoto: true,
-    purgeError: '',
     occurredAt: 1800000000000
   })
 })
@@ -47,8 +41,6 @@ test('buildAuditLogEntry stamps occurredAt when missing', () => {
   })
   const after = Date.now()
   assert.ok(row.occurredAt >= before && row.occurredAt <= after, 'occurredAt should be wall-clock')
-  assert.equal(row.purgePhoto, false)
-  assert.equal(row.photoCloudURL, null)
   assert.equal(row.checkedAt, null)
   assert.equal(row.reason, '')
 })
@@ -83,20 +75,18 @@ test('buildAuditLogEntry coerces non-finite numbers safely', () => {
   assert.equal(row.occurredAt, 1)
 })
 
-test('summarizeAuditLogs counts by type and photo purge outcome', () => {
+test('summarizeAuditLogs counts by type', () => {
   const rows = [
-    { type: 'admin.deleteCheckinRecord', purgePhoto: true,  purgeError: '' },
-    { type: 'admin.deleteCheckinRecord', purgePhoto: true,  purgeError: 'storage timeout' },
-    { type: 'admin.deleteCheckinRecord', purgePhoto: false, purgeError: '' },
-    { type: 'user.deleteCheckin',        purgePhoto: false, purgeError: '' },
-    { type: 'admin.deleteUser',          purgePhoto: false, purgeError: '' }
+    { type: 'admin.deleteCheckinRecord' },
+    { type: 'admin.deleteCheckinRecord' },
+    { type: 'admin.deleteCheckinRecord' },
+    { type: 'user.deleteCheckin' },
+    { type: 'admin.deleteUser' }
   ]
   assert.deepEqual(summarizeAuditLogs(rows), {
     totalAdminDeletes: 3,
     totalUserDeletes: 1,
-    totalAdminDeleteUser: 1,
-    totalPhotoPurged: 1,
-    totalPhotoPurgeFailed: 1
+    totalAdminDeleteUser: 1
   })
 })
 
@@ -104,15 +94,11 @@ test('summarizeAuditLogs tolerates empty / null input', () => {
   assert.deepEqual(summarizeAuditLogs([]), {
     totalAdminDeletes: 0,
     totalUserDeletes: 0,
-    totalAdminDeleteUser: 0,
-    totalPhotoPurged: 0,
-    totalPhotoPurgeFailed: 0
+    totalAdminDeleteUser: 0
   })
   assert.deepEqual(summarizeAuditLogs(null), {
     totalAdminDeletes: 0,
     totalUserDeletes: 0,
-    totalAdminDeleteUser: 0,
-    totalPhotoPurged: 0,
-    totalPhotoPurgeFailed: 0
+    totalAdminDeleteUser: 0
   })
 })

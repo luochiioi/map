@@ -55,15 +55,14 @@ export function persist(): void {
   saveMarkers(markers.value)
 }
 
-export async function doCheckIn(markerId: number, photoPath: string | null, note: string | null, userId: string | null, photoCloudURL: string | null): Promise<CheckinMarker> {
+// P9-1: 移除 photoPath / photoCloudURL 参数 — 打卡仅保留 GPS + 可选备注
+export async function doCheckIn(markerId: number, note: string | null, userId: string | null): Promise<CheckinMarker> {
   const idx = markers.value.findIndex((m: CheckinMarker): boolean => m.id === markerId)
   if (idx === -1) throw new Error('CheckinMarker not found: ' + markerId)
   const checkedAt = Date.now()
   markers.value[idx].checked = true
   markers.value[idx].checkedAt = checkedAt
   markers.value[idx].iconPath = CHECKED_MARKER_ICON
-  if (photoPath != null) markers.value[idx].photoPath = photoPath
-  if (photoCloudURL != null) markers.value[idx].photoCloudURL = photoCloudURL
   if (note != null) markers.value[idx].note = note
   if (userId != null) {
     if (markers.value[idx].checkedBy == null) markers.value[idx].checkedBy = [] as CheckinEntry[]
@@ -73,7 +72,6 @@ export async function doCheckIn(markerId: number, photoPath: string | null, note
       list.push({
         userId: userId,
         checkedAt: checkedAt,
-        photoCloudURL: photoCloudURL,
         note: note
       } as CheckinEntry)
       markers.value[idx].checkinCount = list.length

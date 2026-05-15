@@ -117,7 +117,6 @@ function toPublicProfile(profileRow, extras) {
     nickname: s(row.nickname),
     avatar: s(row.avatar),
     totalCheckins: n(row.totalCheckins),
-    totalPhotos: n(row.totalPhotos),
     completedRoutes: n(ext.completedRoutes)
   }
 }

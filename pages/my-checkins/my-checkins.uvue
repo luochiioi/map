@@ -39,8 +39,6 @@
           <text v-if="entry.repaired" class="repair-tag">补传</text>
         </view>
 
-        <image v-if="entry.photoCloudURL != null" :src="entry.photoCloudURL!!" class="card-photo" mode="aspectFill" @click="previewPhoto(entry)" />
-
         <text class="card-note" v-if="entry.note != null">{{ entry.note!! }}</text>
         <text class="card-note muted" v-else>无备注</text>
 
@@ -149,14 +147,6 @@ function goFocus(entry: MyCheckinEntry): void {
   returnToIndexForFocus(1)
 }
 
-function previewPhoto(entry: MyCheckinEntry): void {
-  const url = entry.photoCloudURL
-  if (url == null) return
-  // uni.previewImage 在 5.07 真机要求 string[]
-  const list: string[] = [url!!]
-  uni.previewImage({ urls: list, current: url!! })
-}
-
 // PITFALLS §10.4 三次调整：UTS 5.07 函数提升不稳定，被引用的函数必须先声明
 async function runDelete(entry: MyCheckinEntry): Promise<void> {
   try {
@@ -223,8 +213,6 @@ function confirmDelete(entry: MyCheckinEntry): void {
 .card-head { display: flex; flex-direction: row; align-items: center; }
 .card-title { flex: 1; font-size: 30rpx; font-weight: 600; color: #1a1a1a; }
 .repair-tag { font-size: 20rpx; color: #9a6b00; background-color: #fff7d6; border-radius: 999rpx; padding: 4rpx 14rpx; margin-left: 12rpx; }
-
-.card-photo { width: 100%; height: 360rpx; border-radius: 14rpx; background-color: #eef0f2; margin-top: 16rpx; }
 
 .card-note { font-size: 26rpx; color: #333333; margin-top: 14rpx; line-height: 38rpx; }
 .card-note.muted { color: #9aa4a8; }

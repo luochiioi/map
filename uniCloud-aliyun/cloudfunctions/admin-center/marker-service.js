@@ -251,7 +251,6 @@ function flattenCheckinRecords(markers, userLookup) {
         userId: entry.userId || '',
         userName: resolveUserName(entry.userId, userLookup),
         checkedAt: entry.checkedAt || 0,
-        photoCloudURL: entry.photoCloudURL || null,
         note: entry.note || null,
         repaired: entry.repaired === true
       })
@@ -393,7 +392,7 @@ function ensureStats(map, userId) {
   const key = String(userId || '')
   if (!key) return null
   if (!map.has(key)) {
-    map.set(key, { activeCheckins: 0, totalPhotos: 0 })
+    map.set(key, { activeCheckins: 0 })
   }
   return map.get(key)
 }
@@ -405,7 +404,6 @@ function deriveActiveCheckinsFromMarkers(markers) {
       const stats = ensureStats(statsByUserId, entry && entry.userId)
       if (!stats) return
       stats.activeCheckins += 1
-      if (entry.photoCloudURL) stats.totalPhotos += 1
     })
   })
   return statsByUserId
@@ -457,7 +455,6 @@ function normalizeAdminUsers(uniUsers, profileUsers, markerStats, rewardStats) {
       role: user && user.role != null ? user.role : null,
       totalCheckins,
       activeCheckins,
-      totalPhotos: Number(profileStats.totalPhotos != null ? profileStats.totalPhotos : (activeStats.totalPhotos || 0)),
       totalRewardPoints: Number(rewards.totalRewardPoints || 0),
       claimedRewardPoints: Number(rewards.claimedRewardPoints || 0),
       pendingRewardPoints: Number(rewards.pendingRewardPoints || 0),

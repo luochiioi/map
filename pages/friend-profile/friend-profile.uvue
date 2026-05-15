@@ -17,11 +17,6 @@
         </view>
         <view class="stat-div" />
         <view class="stat-item">
-          <text class="stat-num">{{ profile.totalPhotos.toString() }}</text>
-          <text class="stat-label">照片</text>
-        </view>
-        <view class="stat-div" />
-        <view class="stat-item">
           <text class="stat-num">{{ profile.completedRoutes.toString() }}</text>
           <text class="stat-label">完成路线</text>
         </view>

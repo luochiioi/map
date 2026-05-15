@@ -195,11 +195,9 @@ export async function syncMarkers(currentUid: string | null): Promise<CheckinMar
       cloudMarker.checked = userEntry != null
       if (userEntry != null) {
         cloudMarker.checkedAt = userEntry.checkedAt
-        cloudMarker.photoCloudURL = userEntry.photoCloudURL
         cloudMarker.note = userEntry.note
       } else {
         cloudMarker.checkedAt = null
-        cloudMarker.photoCloudURL = null
         cloudMarker.note = null
       }
       merged.set(cloudMarker.id, cloudMarker)
@@ -220,17 +218,11 @@ export async function syncMarkers(currentUid: string | null): Promise<CheckinMar
       if (userEntry != null) {
         local.checked = true
         local.checkedAt = userEntry.checkedAt
-        local.photoCloudURL = userEntry.photoCloudURL
         local.note = userEntry.note
       } else if (currentUid != null && currentUid.length > 0) {
         local.checked = false
         local.checkedAt = null
-        local.photoCloudURL = null
         local.note = null
-      }
-      // 保留 local.photoPath（本地拍照路径，云端没有）
-      if (cloudMarker.photoPath != null) {
-        local.photoPath = cloudMarker.photoPath
       }
     }
   }
@@ -276,7 +268,6 @@ export async function repairMissingCheckins(uid: string): Promise<number> {
     const payload = JSON.parse('{}') as UTSJSONObject
     payload["markerId"] = marker.id
     payload["checkedAt"] = marker.checkedAt
-    payload["photoCloudURL"] = marker.photoCloudURL
     payload["note"] = marker.note
     await markerApi.repairCheckin(payload)
   }
@@ -324,7 +315,6 @@ export type MyCheckinEntry = {
   longitude: number
   iconPath: string
   checkedAt: number
-  photoCloudURL: string | null
   note: string | null
   repaired: boolean
   // P4：该 marker 属于的 active 路线列表（服务端按 markerIds join 后挂在

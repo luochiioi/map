@@ -8,7 +8,6 @@ function buildRepairCheckinEntry(payload, uid, now) {
   return {
     userId: uid,
     checkedAt: Number.isFinite(checkedAt) ? checkedAt : now,
-    photoCloudURL: (payload && payload.photoCloudURL) || null,
     note: (payload && payload.note) || null,
     repaired: true
   }
