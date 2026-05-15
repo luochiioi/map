@@ -35,6 +35,7 @@
         </view>
         <view class="lb-info">
           <text class="lb-name">{{ row.nickname }}</text>
+          <text class="lb-uid">ID: {{ row.userId }}</text>
           <text class="lb-sub">{{ subTextFor(row) }}</text>
         </view>
         <text class="lb-value">{{ row.value.toString() }}</text>
@@ -53,6 +54,7 @@
         </view>
         <view class="lb-info">
           <text class="lb-name">{{ selfRow!!.nickname }}</text>
+          <text class="lb-uid">ID: {{ selfRow!!.userId }}</text>
           <text class="lb-sub">{{ subTextFor(selfRow!!) }}</text>
         </view>
         <text class="lb-value">{{ selfRow!!.value.toString() }}</text>
@@ -182,7 +184,8 @@ onShow((): void => {
 .lb-avatar-img { width: 80rpx; height: 80rpx; }
 .lb-avatar-text { font-size: 28rpx; color: #2ecc71; font-weight: 600; }
 .lb-info { flex: 1; display: flex; flex-direction: column; }
-.lb-name { font-size: 26rpx; color: #1a1a1a; font-weight: 500; }
+.lb-name { font-size: 28rpx; color: #1a1a1a; font-weight: 500; }
+.lb-uid { font-size: 20rpx; color: #999999; margin-top: 2rpx; }
 .lb-sub { font-size: 24rpx; color: #888888; margin-top: 2rpx; }
 .lb-value { font-size: 32rpx; color: #2ecc71; font-weight: 600; }
 </style>
