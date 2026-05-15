@@ -1,0 +1,29 @@
+{
+  "bsonType": "object",
+  "required": ["markerId", "category"],
+  "permission": {
+    "read": true,
+    "create": "auth.role == 'admin'",
+    "update": "auth.role == 'admin'",
+    "delete": "auth.role == 'admin'"
+  },
+  "properties": {
+    "_id": { "description": "云端自动生成的文档ID" },
+    "markerId": { "bsonType": "int", "description": "关联 tourism_markers.id（1:1，唯一）" },
+    "category": {
+      "bsonType": "string",
+      "enum": ["传统技艺", "民俗", "曲艺", "传统音乐", "传统舞蹈", "传统美术", "传统医药", "民间文学", "传统体育"],
+      "description": "非遗类别"
+    },
+    "summary": { "bsonType": "string", "maxLength": 300, "description": "项目简介" },
+    "story": { "bsonType": "string", "maxLength": 5000, "description": "历史故事长文" },
+    "images": { "bsonType": "array", "items": { "bsonType": "string" }, "description": "图文云存储URL列表" },
+    "inheritorName": { "bsonType": "string", "maxLength": 50, "description": "传承人姓名" },
+    "inheritorBio": { "bsonType": "string", "maxLength": 500, "description": "传承人简介" },
+    "inheritorPhoto": { "bsonType": "string", "description": "传承人照片云存储URL" },
+    "relatedMarkerIds": { "bsonType": "array", "items": { "bsonType": "int" }, "description": "相关条目 markerId" },
+    "status": { "bsonType": "string", "enum": ["draft", "published"], "defaultValue": "draft", "description": "草稿不在App端F2列表出现" },
+    "createdAt": { "bsonType": "timestamp" },
+    "updatedAt": { "bsonType": "timestamp" }
+  }
+}
