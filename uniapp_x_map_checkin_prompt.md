@@ -4049,7 +4049,7 @@ d1cdcdb refactor(app): 排行榜副标题 3 维度并列(B3)
 
 ---
 
-## 2026-05-15 P9 功能精简 / 面板弹出修复 / 好友列表 / 排行榜用户名（待开工）
+## 2026-05-15 P9 功能精简 / 面板弹出修复 / 好友列表 / 排行榜用户名（已落地）
 
 P8 验收后用户提出四个需求 + 一个 P8 遗留。
 
@@ -4112,3 +4112,19 @@ index.uvue `<checkin-map>` 切 key 重建期间加半透明遮罩，盖住 3-5s 
 **当前状态**：leaderboard 已显示 `row.nickname`（服务器 `getLeaderboard:740` 从 `colUserProfiles` 拉取 nickname）。但若用户注册时 nickname 为空或与注册名不一致，榜单显示的就是 ID（如 `000_001`）而非可辨识的用户名。
 
 **建议**：在每行追加显示 `userId`（小号灰色字），格式如 `"小明"` + 下方 `ID: 000_001`，让用户可以通过 ID 加好友。或者：榜单行显示 `userId · nickname` 双字段。
+
+---
+
+### P9 实施结果（commit 7825bb9 → 915f418）
+
+5 个 commit 全部落地，真机验收通过。Node 测试 186 例全绿（原 189 − 6 个 photo-service 测试 + 3 个 checkin-groups 测试纳入）。
+
+| 任务 | commit | 实际根因 / 与计划的差异 |
+|------|--------|------------------------|
+| B2 黑屏 | `7825bb9` `a4cb85d` | **计划假设错了**。原以为 `<checkin-map>` 的 `:key="currentUid"` 触发重建。真因是 `profile.uvue:doLogout` 用 `uni.reLaunch('/pages/index/index')` 销毁整个 index 页 + 原生 `<map>`，触发 3-5s GL 重建。改用 `navigateBack` 后页面走 `onShow` 不重建，黑屏消失。`:key` 顺手移除（对 logout 路径本就无效）。**未做遮罩方案**——根因修复后遮罩无意义。 |
+| P9-1 删除照片 | `4ca9f94` | 34 文件，净 −701 行。`totalPhotos` 统计字段经用户确认一并彻底删除（计划未列）。`photo-center` 不能整目录删——它还被 `profile-edit.uvue` 用于头像上传，已恢复并瘦身为仅保留 `upload`。 |
+| P9-2 面板反复弹出 | `f5a54e2` | **计划根因分析错了**（怀疑时序/互斥）。真因：`requestFocusByMarker` 同时写 `focusPayload` + `focusTarget` 两个通道，`consumePendingFocus` 只消费 payload 就提前 return，残留的 `focusTarget` 被下次 onShow 的 `consumeFocus()` 当作待消费目标。修复：`consumeFocusPayload()` 消费时同步清空 `focusTarget`。未加互斥锁、未改 onShow 为 await——均非必要。 |
+| P9-3 排行榜用户 ID | `915f418` | 每行昵称下加灰色 `ID: <userId>` 小字（20rpx），昵称字号 26→28rpx。主榜行 + 置底自己行两处。 |
+| P9-4 好友列表 | 无代码改动 | 代码审计确认 outgoing profile join 逻辑正确，无 bug。若真机显示重名 = `users` 表数据问题（默认昵称重复 / 缺行），非代码缺陷。 |
+
+**沉淀的两条新规范**：见 `UTS_COMPILE_PITFALLS.md` 规则 26（reLaunch 销毁原生组件）/ 规则 27（双通道状态必须成对消费）。

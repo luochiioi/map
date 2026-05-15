@@ -1968,33 +1968,50 @@ grep -rn "JSON.parse<" utils/ pages/  # 找到所有跨云 parse 点
 
 ---
 
-## §规则 53:`<map>` / `<checkin-map>` 原生 SDK key 属性消重建延迟
+## §规则 53:`reLaunch` 销毁原生 `<map>` 控件 — 返回 index 必须用 navigateBack
 
-**适用范围**:任何使用 uni-app x 5.07 `<map>` 或 `<checkin-map>` 原生控件且存在"退出登录→重新登录→地图回到 index"流程的页面。
+**适用范围**:任何从子页面"返回到含原生 `<map>`/`<checkin-map>` 的 index 页"的导航。
 
-**现象**:reLaunch 或 navigateBack 后 `<checkin-map>` 原生 SDK 实例被复用,上一账号的 MapView 状态与新 markers 数据不匹配,出现 3-5 秒黑屏过渡。
+**现象**:退出登录后地图黑屏 3-5 秒才恢复。
 
-**已尝试但不够的方案**:
-- 清 `markers.value = []`(P8 commit `5bcbdee`):清掉 singleton,但 SDK 复用仍导致黑屏
-- 清 `useMapStore` lat/lng:同理,SDK 控件本身不重建
+**真因(P9 commit `a4cb85d` 修正,推翻 P8 的判断)**:
+`profile.uvue:doLogout` 原本用 `uni.reLaunch('/pages/index/index')`。`reLaunch` **销毁整个页面栈并重建目标页**,index 页连同原生 `<map>` 控件一起被销毁重建,原生 MapView 的 GL 上下文 / 瓦片加载从零开始 → 3-5s 黑屏。
 
-**正解**(P8 commit `a548c40`,`pages/index/index.uvue`):
-```html
-<checkin-map
-  :key="currentUid"
-  map-id="mainMap"
-  ...
-/>
-```
+**诊断指纹**:HBuilderX 日志里出现 `进入页面 /pages/index/index`,且 `创建 dom N 个 / 渲染 X ms` 与冷启动那一行数字一致 → 页面是全新 mount,不是 `onShow` 恢复。这能立刻区分"导航 API 选错"与"平台限制"。
+
+**正解**:返回 index 一律用 `uni.navigateBack({ delta: N as number })`,不要用 `reLaunch`。`navigateBack` 只是弹出栈顶页,index 走 `onShow` 而非重新 mount,原生 `<map>` 保持存活,markers 通过响应式刷新即可。
+
 ```ts
-const currentUid = computed((): string => {
-  const info = userState.userInfo
-  return info != null ? info.userId : 'anon'
-})
+// pages/profile/profile.uvue — profile 只能从 index navigateTo 进入,栈固定 [index, profile]
+clearUserInfo()
+uni.navigateBack({ delta: 1 as number })  // ✅  不要 uni.reLaunch
 ```
 
-**为什么有效**:`:key` 变化时 Vue 销毁旧 `<checkin-map>`(含底层原生 MapView)再创建新实例——不是"数据驱动",而是"实例级重建"。重建不会消除原生 SDK 的初始化延迟(瓦片加载/GL 上下文 etc.),**但消除了"旧 SDK 实例+新数据"的中间态**。
+**P8 的 `:key="currentUid"` 是误判,已在 P9 commit `7825bb9` 移除**:`:key` 对 `reLaunch` 路径完全无效(reLaunch 本就销毁整页),只会在 navigateBack 返回时白白付一次重建成本。黑屏不是平台级限制,是导航 API 选择问题。
 
-**局限**:key 切换后的原生 SDK 重建仍有 3-5 秒初始化时间。这不是数据层问题,是 uni-app x 5.07 原生 MapView 的平台级限制,应用层无法绕过。建议配合遮罩 UI("加载中...")改善体验。
+## §规则 54:双通道状态必须成对消费 — 否则残留通道会被二次触发
+
+**适用范围**:任何"同一份意图写入两个状态通道"的 store 设计(典型:内存 ref + storage 持久化)。
+
+**现象(P9 commit `f5a54e2`)**:打卡 → 关闭详情面板 → 切到其他页 → 切回首页,面板再次自动弹出。
+
+**真因**:`useMapStore` 有两个聚焦通道——`focusPayload`(storage 持久化)和 `focusTarget`(内存 ref)。`requestFocusByMarker` **同时写两个**。但 `consumePendingFocus()` 只消费 `focusPayload` 就提前 `return`,从不清 `focusTarget`。下一次 `onShow` 时 payload 路径返回 null,fallback 的 `consumeFocus()` 读到残留的 `focusTarget` → 面板二次弹出。
+
+**正解**:成对写入的通道必须成对消费。在消费函数里把所有相关通道一次清干净:
+
+```ts
+export function consumeFocusPayload(): FocusPayload | null {
+  const inMemory = focusPayload.value
+  if (inMemory != null) {
+    focusPayload.value = null
+    focusTarget.value = null            // ✅ 同步清空另一个通道
+    uni.removeStorageSync(KEY_PENDING_FOCUS)
+    return inMemory
+  }
+  // ... storage 分支同样清 focusTarget
+}
+```
+
+**通用原则**:修在 store 层(状态定义处),不要修在调用方页面——store 层修一次对所有调用方一致生效。若发现某通道"只被写、几乎不被独立读",它很可能是冗余设计,可考虑彻底删除而非维护两套。
 
 **落地证据**:P8 commit `a548c40`(`fix(app): <checkin-map> :key="currentUid" 强制 SDK 重建消黑屏(B2)`)在 `pages/index/index.uvue` 落地 `:key="currentUid"` + `currentUid` computed。
