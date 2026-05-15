@@ -104,6 +104,9 @@
       </scroll-view>
 
       <view class="panel-actions">
+        <view class="panel-btn panel-btn-ghost" @click="openHeritageDetail">
+          <text class="panel-btn-text muted">了解非遗详情</text>
+        </view>
         <view class="panel-btn panel-btn-danger" v-if="currentUserChecked" @click="confirmDeleteCheckin">
           <text class="panel-btn-text danger">删除打卡</text>
         </view>
@@ -593,6 +596,12 @@ function doDelete(): void {
       }
     }
   })
+}
+
+function openHeritageDetail(): void {
+  if (activeMarker.value == null) return
+  const id = activeMarker.value!!.id
+  uni.navigateTo({ url: '/pages/heritage-detail/heritage-detail?markerId=' + id.toString() })
 }
 </script>
 
