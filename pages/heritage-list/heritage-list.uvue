@@ -1,0 +1,179 @@
+<template>
+  <view class="page">
+
+    <!-- 分类筛选标签栏（§23：horizontal scroll-view 作为 vertical list 的 sibling，不嵌套） -->
+    <scroll-view class="tab-bar" scroll-x direction="horizontal" :show-scrollbar="false">
+      <view class="tab-inner">
+        <view
+          v-for="cat in categories"
+          :key="cat"
+          class="tab-chip"
+          :class="(cat == '全部' && activeCategory == '') || (cat != '全部' && cat == activeCategory) ? 'tab-chip-active' : 'tab-chip-inactive'"
+          @click="selectCategory(cat)"
+        >
+          <text
+            class="tab-chip-text"
+            :class="(cat == '全部' && activeCategory == '') || (cat != '全部' && cat == activeCategory) ? 'tab-chip-text-active' : 'tab-chip-text-inactive'"
+          >{{ cat }}</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 列表区域（vertical scroll-view，与 tab-bar 平行） -->
+    <scroll-view class="list" scroll-y direction="vertical" :show-scrollbar="false">
+
+      <!-- 加载中 -->
+      <view v-if="loading" class="notice">
+        <text class="notice-text">正在加载非遗内容...</text>
+      </view>
+
+      <!-- 空状态 -->
+      <view v-if="loading == false && items.length == 0" class="empty">
+        <text class="empty-text">暂无非遗内容</text>
+      </view>
+
+      <!-- 列表项 -->
+      <view
+        v-for="item in items"
+        :key="item._id"
+        class="card"
+        @click="openDetail(item.markerId)"
+      >
+        <!-- 缩略图 -->
+        <image
+          v-if="item.images.length > 0"
+          class="thumb"
+          :src="item.images[0]"
+          mode="aspectFill"
+        />
+        <view v-if="item.images.length == 0" class="thumb thumb-placeholder" />
+
+        <!-- 右侧内容 -->
+        <view class="card-body">
+          <view class="cat-badge">
+            <text class="cat-badge-text">{{ item.category }}</text>
+          </view>
+          <text class="card-summary">{{ item.summary }}</text>
+        </view>
+
+        <!-- 箭头 -->
+        <text class="card-arrow">›</text>
+      </view>
+
+      <!-- 底部留白 -->
+      <view class="bottom-spacer" />
+    </scroll-view>
+
+  </view>
+</template>
+
+<script setup lang="uts">
+import { ref } from 'vue'
+import type { HeritageListItem } from '@/types/heritage'
+import { fetchHeritageList } from '@/utils/heritageCloud'
+
+const categories: string[] = ['全部', '传统技艺', '民俗', '曲艺', '传统音乐', '传统舞蹈', '传统美术', '传统医药', '民间文学', '传统体育']
+
+const activeCategory = ref<string>('')
+const items = ref<HeritageListItem[]>([])
+const loading = ref<boolean>(true)
+let pageOffset: number = 0
+
+// §45：loadList 先声明，selectCategory / onReachBottom 后声明（被引用方先于引用方）
+async function loadList(reset: boolean): Promise<void> {
+  if (reset) {
+    pageOffset = 0
+    items.value = [] as HeritageListItem[]
+  }
+  loading.value = true
+  const result = await fetchHeritageList(activeCategory.value, pageOffset, 20)
+  if (reset) {
+    items.value = result
+  } else {
+    const merged: HeritageListItem[] = [] as HeritageListItem[]
+    for (let i = 0; i < items.value.length; i++) {
+      merged.push(items.value[i])
+    }
+    for (let j = 0; j < result.length; j++) {
+      merged.push(result[j])
+    }
+    items.value = merged
+  }
+  pageOffset = pageOffset + 20
+  loading.value = false
+}
+
+function selectCategory(cat: string): void {
+  if (cat == '全部') {
+    activeCategory.value = ''
+  } else {
+    activeCategory.value = cat
+  }
+  loadList(true)
+}
+
+function openDetail(markerId: number): void {
+  uni.navigateTo({ url: '/pages/heritage-detail/heritage-detail?markerId=' + markerId.toString() })
+}
+
+// §16：uni-app x 全局钩子，不从 vue import
+onReady((): void => {
+  loadList(true)
+})
+
+// 上拉翻页：onReachBottom 全局钩子
+onReachBottom((): void => {
+  if (loading.value == false) {
+    loadList(false)
+  }
+})
+</script>
+
+<style>
+.page { flex: 1; width: 750rpx; background-color: #f5f7f6; display: flex; flex-direction: column; }
+
+/* 分类标签栏 */
+.tab-bar { width: 750rpx; flex-shrink: 0; background-color: #ffffff; border-bottom-width: 1rpx; border-bottom-style: solid; border-bottom-color: #eaeaea; }
+.tab-inner { display: flex; flex-direction: row; padding: 16rpx 12rpx; }
+
+.tab-chip { padding: 10rpx 24rpx; border-radius: 999rpx; margin-right: 12rpx; flex-shrink: 0; }
+.tab-chip-active { background-color: #1a73e8; }
+.tab-chip-inactive { background-color: #f0f2f5; }
+
+.tab-chip-text { font-size: 24rpx; font-weight: 500; }
+.tab-chip-text-active { color: #ffffff; }
+.tab-chip-text-inactive { color: #5a6770; }
+
+/* 列表 scroll-view */
+.list { flex: 1; width: 750rpx; }
+
+/* 加载 / 空状态 */
+.notice { background-color: #eef9f2; border-radius: 12rpx; padding: 18rpx 20rpx; margin: 24rpx; }
+.notice-text { font-size: 24rpx; color: #2e9f5f; }
+
+.empty { padding: 80rpx 40rpx; display: flex; flex-direction: column; align-items: center; }
+.empty-text { font-size: 26rpx; color: #999999; line-height: 40rpx; text-align: center; }
+
+/* 卡片行 */
+.card { margin: 0 24rpx; margin-top: 20rpx; background-color: #ffffff; border-radius: 20rpx; padding: 20rpx; display: flex; flex-direction: row; align-items: center; }
+
+/* 缩略图 */
+.thumb { width: 120rpx; height: 120rpx; border-radius: 14rpx; background-color: #e0e4e8; flex-shrink: 0; }
+.thumb-placeholder { background-color: #dde2e7; }
+
+/* 卡片主体 */
+.card-body { flex: 1; margin-left: 20rpx; display: flex; flex-direction: column; }
+
+/* 分类徽章（与 heritage-detail.uvue 统一样式） */
+.cat-badge { padding: 6rpx 20rpx; border-radius: 24rpx; background-color: #e8f0fe; align-self: flex-start; }
+.cat-badge-text { font-size: 24rpx; color: #1a73e8; }
+
+/* 摘要文本（CSS 截断，不用 substring） */
+.card-summary { font-size: 26rpx; color: #3a4a5a; line-height: 40rpx; margin-top: 10rpx; overflow: hidden; }
+
+/* 箭头 */
+.card-arrow { font-size: 32rpx; color: #aaaaaa; margin-left: 12rpx; flex-shrink: 0; }
+
+/* 底部留白 */
+.bottom-spacer { height: 48rpx; }
+</style>

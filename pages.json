@@ -116,6 +116,12 @@
       "style": {
         "navigationBarTitleText": "非遗详情"
       }
+    },
+    {
+      "path": "pages/heritage-list/heritage-list",
+      "style": {
+        "navigationBarTitleText": "非遗名录"
+      }
     }
   ],
   "globalStyle": {

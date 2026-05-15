@@ -37,6 +37,9 @@
       <view class="bl-btn bl-btn-lb" @click="goLeaderboard">
         <text class="bl-btn-text-off">排行</text>
       </view>
+      <view class="bl-btn bl-btn-heritage" @click="openHeritageList">
+        <text class="bl-btn-text-off">非遗名录</text>
+      </view>
     </view>
 
     <view class="br-stack" v-if="activeMarker == null">
@@ -193,6 +196,10 @@ function goRoutes(): void {
 
 function goTasksOnly(): void {
   uni.navigateTo({ url: '/pages/tasks/tasks' })
+}
+
+function openHeritageList(): void {
+  uni.navigateTo({ url: '/pages/heritage-list/heritage-list' })
 }
 
 // P6: deep-link handler — checks clipboard for a mapcheckin://route link
@@ -626,6 +633,7 @@ function openHeritageDetail(): void {
 .bl-btn-task { background-color: #ffffff; border: 2rpx solid #2ecc71; }
 .bl-btn-friend { background-color: #ffffff; border: 2rpx solid #2e9f5f; }
 .bl-btn-lb { background-color: #ffffff; border: 2rpx solid #2e9f5f; }
+.bl-btn-heritage { background-color: #ffffff; border: 2rpx solid #1a73e8; }
 .bl-btn-text-on { color: #ffffff; font-size: 26rpx; font-weight: 500; }
 .bl-btn-text-off { color: #2ecc71; font-size: 26rpx; font-weight: 500; }
 
