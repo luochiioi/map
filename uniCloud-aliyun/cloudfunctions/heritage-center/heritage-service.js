@@ -4,12 +4,17 @@ const CATEGORY_ENUM = [
 ]
 
 const HERITAGE_UPDATE_WHITELIST = [
-  'category', 'summary', 'story', 'images',
+  'title', 'category', 'summary', 'story', 'images',
   'inheritorName', 'inheritorBio', 'inheritorPhoto',
-  'relatedMarkerIds', 'status'
+  'relatedMarkerIds', 'status', 'videoUrl', 'videoCover'
 ]
 
 function toStr(v) { return typeof v === 'string' ? v : '' }
+
+const REGEX_META = /[.*+?^${}()|[\]\\]/g
+function escapeRegExp(s) {
+  return (typeof s === 'string' ? s : '').replace(REGEX_META, '\\$&')
+}
 function toIntArray(v) {
   if (!Array.isArray(v)) return []
   return v.map((x) => Number(x)).filter((n) => Number.isFinite(n))
@@ -31,6 +36,7 @@ function buildHeritageDoc(data, now) {
   return {
     markerId: Number(data.markerId),
     category: data.category,
+    title: toStr(data.title),
     summary: toStr(data.summary),
     story: toStr(data.story),
     images: toStrArray(data.images),
@@ -39,6 +45,8 @@ function buildHeritageDoc(data, now) {
     inheritorPhoto: toStr(data.inheritorPhoto),
     relatedMarkerIds: toIntArray(data.relatedMarkerIds),
     status: data.status === 'published' ? 'published' : 'draft',
+    videoUrl: toStr(data.videoUrl),
+    videoCover: toStr(data.videoCover),
     createdAt: now,
     updatedAt: now
   }
@@ -63,6 +71,7 @@ function normalizeHeritageDetail(doc) {
     _id: toStr(doc && doc._id),
     markerId: Number((doc && doc.markerId) || 0),
     category: toStr(doc && doc.category),
+    title: toStr(doc && doc.title),
     summary: toStr(doc && doc.summary),
     story: toStr(doc && doc.story),
     images: toStrArray(doc && doc.images),
@@ -70,8 +79,25 @@ function normalizeHeritageDetail(doc) {
     inheritorBio: toStr(doc && doc.inheritorBio),
     inheritorPhoto: toStr(doc && doc.inheritorPhoto),
     relatedMarkerIds: toIntArray(doc && doc.relatedMarkerIds),
-    status: (doc && doc.status === 'published') ? 'published' : 'draft'
+    status: (doc && doc.status === 'published') ? 'published' : 'draft',
+    videoUrl: toStr(doc && doc.videoUrl),
+    videoCover: toStr(doc && doc.videoCover)
   }
+}
+
+// F2 搜索：把 { category, keyword } 规范化为查询描述对象。
+// category 非法则丢弃；keyword trim 后为空则丢弃，否则转义正则元字符。
+function buildHeritageQuery(input) {
+  const f = input || {}
+  const out = {}
+  if (typeof f.category === 'string' && CATEGORY_ENUM.includes(f.category)) {
+    out.category = f.category
+  }
+  const kw = (typeof f.keyword === 'string' ? f.keyword : '').trim()
+  if (kw.length > 0) {
+    out.keyword = escapeRegExp(kw)
+  }
+  return out
 }
 
 // 种子打卡点：澳门 5 个（markerId 1001-1005）+ 湖南 5 个（1101-1105），真实坐标。
@@ -160,6 +186,7 @@ module.exports = {
   buildHeritageDoc,
   buildHeritageUpdate,
   normalizeHeritageDetail,
+  buildHeritageQuery,
   DEFAULT_SEED_MARKERS,
   DEFAULT_SEED_HERITAGE
 }

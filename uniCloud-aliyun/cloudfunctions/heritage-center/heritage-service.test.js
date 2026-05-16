@@ -89,3 +89,61 @@ test('种子 marker 坐标落在合理经纬度范围', () => {
     assert.ok(m.longitude > 109 && m.longitude < 115, `${m.title} 经度异常`)
   }
 })
+
+test('buildHeritageDoc 写入 title/videoUrl/videoCover', () => {
+  const doc = buildHeritageDoc({ markerId: 5, category: '民俗', title: '醉龙', videoUrl: 'v.mp4', videoCover: 'c.jpg' }, 1700000000000)
+  assert.strictEqual(doc.title, '醉龙')
+  assert.strictEqual(doc.videoUrl, 'v.mp4')
+  assert.strictEqual(doc.videoCover, 'c.jpg')
+})
+
+test('buildHeritageDoc 缺字段时三字段为空串', () => {
+  const doc = buildHeritageDoc({ markerId: 5, category: '民俗' }, 1700000000000)
+  assert.strictEqual(doc.title, '')
+  assert.strictEqual(doc.videoUrl, '')
+  assert.strictEqual(doc.videoCover, '')
+})
+
+test('normalizeHeritageDetail 补齐 title/videoUrl/videoCover', () => {
+  const n = normalizeHeritageDetail({ markerId: 1, category: '曲艺' })
+  assert.strictEqual(n.title, '')
+  assert.strictEqual(n.videoUrl, '')
+  assert.strictEqual(n.videoCover, '')
+})
+
+test('buildHeritageUpdate 保留 title/videoUrl/videoCover、仍拒 _id/markerId', () => {
+  const u = buildHeritageUpdate({ title: 'T', videoUrl: 'v', videoCover: 'c', _id: 'x', markerId: 9 }, 1700000000000)
+  assert.strictEqual(u.title, 'T')
+  assert.strictEqual(u.videoUrl, 'v')
+  assert.strictEqual(u.videoCover, 'c')
+  assert.strictEqual(u._id, undefined)
+  assert.strictEqual(u.markerId, undefined)
+})
+
+test('每条种子非遗都有非空 title', () => {
+  for (const h of DEFAULT_SEED_HERITAGE) {
+    assert.ok(h.title && h.title.length > 0, `种子缺 title: markerId ${h.markerId}`)
+  }
+})
+
+test('buildHeritageQuery 空输入返回空对象', () => {
+  const { buildHeritageQuery } = require('./heritage-service')
+  assert.deepStrictEqual(buildHeritageQuery(null), {})
+  assert.deepStrictEqual(buildHeritageQuery({}), {})
+})
+
+test('buildHeritageQuery 保留合法 category、丢弃非法 category', () => {
+  const { buildHeritageQuery } = require('./heritage-service')
+  assert.strictEqual(buildHeritageQuery({ category: '民俗' }).category, '民俗')
+  assert.strictEqual(buildHeritageQuery({ category: '不存在' }).category, undefined)
+})
+
+test('buildHeritageQuery keyword trim 后为空则丢弃', () => {
+  const { buildHeritageQuery } = require('./heritage-service')
+  assert.strictEqual(buildHeritageQuery({ keyword: '   ' }).keyword, undefined)
+})
+
+test('buildHeritageQuery 转义正则元字符', () => {
+  const { buildHeritageQuery } = require('./heritage-service')
+  assert.strictEqual(buildHeritageQuery({ keyword: 'a.b*c' }).keyword, 'a\\.b\\*c')
+})
