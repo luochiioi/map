@@ -13,8 +13,9 @@
     <!-- 详情内容 -->
     <view v-if="detail != null" class="content">
 
-      <!-- 分类徽章 + 摘要 -->
+      <!-- 标题 + 分类徽章 + 摘要 -->
       <view class="hero">
+        <text v-if="detail!!.title.length > 0" class="hero-title">{{ detail!!.title }}</text>
         <view class="cat-badge">
           <text class="cat-badge-text">{{ detail!!.category }}</text>
         </view>
@@ -34,6 +35,19 @@
             </view>
           </view>
         </scroll-view>
+      </view>
+
+      <!-- 视频（仅有 videoUrl 时渲染） -->
+      <view v-if="detail!!.videoUrl.length > 0" class="section">
+        <text class="section-title">非遗视频</text>
+        <video
+          class="heritage-video"
+          :src="detail!!.videoUrl"
+          :poster="detail!!.videoCover"
+          :controls="true"
+          :show-center-play-btn="true"
+          object-fit="contain"
+        ></video>
       </view>
 
       <!-- 故事正文 -->
@@ -137,6 +151,8 @@ onLoad((options: OnLoadOptions): void => {
 /* 顶部英雄区：分类徽章 + 摘要 */
 .hero { margin: 24rpx; padding: 28rpx 24rpx; background-color: #ffffff; border-radius: 24rpx; display: flex; flex-direction: column; }
 
+.hero-title { font-size: 36rpx; font-weight: 700; color: #1a1a1a; margin-bottom: 14rpx; }
+
 .cat-badge { padding: 6rpx 20rpx; border-radius: 24rpx; background-color: #e8f0fe; align-self: flex-start; }
 .cat-badge-text { font-size: 24rpx; color: #1a73e8; }
 
@@ -148,6 +164,9 @@ onLoad((options: OnLoadOptions): void => {
 .gallery-inner { display: flex; flex-direction: row; padding-right: 24rpx; }
 .gallery-item { margin-right: 16rpx; flex-shrink: 0; }
 .gallery-img { width: 280rpx; height: 210rpx; border-radius: 16rpx; background-color: #e0e4e8; }
+
+/* 非遗视频 */
+.heritage-video { width: 654rpx; height: 380rpx; border-radius: 16rpx; background-color: #000000; }
 
 /* 通用 section 卡片 */
 .section { margin: 0 24rpx 20rpx 24rpx; padding: 24rpx; background-color: #ffffff; border-radius: 20rpx; display: flex; flex-direction: column; }
