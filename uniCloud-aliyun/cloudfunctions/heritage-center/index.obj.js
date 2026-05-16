@@ -6,7 +6,7 @@ const {
   buildHeritageDoc,
   buildHeritageUpdate,
   normalizeHeritageDetail,
-  CATEGORY_ENUM,
+  buildHeritageQuery,
   DEFAULT_SEED_MARKERS,
   DEFAULT_SEED_HERITAGE
 } = require('./heritage-service')
@@ -44,12 +44,16 @@ module.exports = {
   },
 
   async list(data) {
-    const category = (data && typeof data.category === 'string') ? data.category : ''
+    const q = buildHeritageQuery(data)
     const offset = Number((data && data.offset) || 0)
     const limit = Math.min(Number((data && data.limit) || 20), 50)
-    const where = category && CATEGORY_ENUM.includes(category)
-      ? { status: 'published', category }
-      : { status: 'published' }
+    const conds = [{ status: 'published' }]
+    if (q.category) { conds.push({ category: q.category }) }
+    if (q.keyword) {
+      const re = new db.RegExp({ regexp: q.keyword, options: 'i' })
+      conds.push(db.command.or([{ title: re }, { inheritorName: re }]))
+    }
+    const where = conds.length === 1 ? conds[0] : db.command.and(conds)
     const res = await col.where(where).skip(offset).limit(limit).get()
     const items = (res.data || []).map((d) => normalizeHeritageDetail(d))
     return { errCode: 0, errMsg: '', data: { items, offset, limit } }
@@ -58,9 +62,15 @@ module.exports = {
   // ---- 管理写 ----
   async adminList(data) {
     await requireAdmin(this)
+    const q = buildHeritageQuery(data)
     const offset = Number((data && data.offset) || 0)
     const limit = Math.min(Number((data && data.limit) || 50), 100)
-    const res = await col.skip(offset).limit(limit).get()
+    let query = col
+    if (q.keyword) {
+      const re = new db.RegExp({ regexp: q.keyword, options: 'i' })
+      query = col.where(db.command.or([{ title: re }, { inheritorName: re }]))
+    }
+    const res = await query.skip(offset).limit(limit).get()
     return { errCode: 0, errMsg: '', data: (res.data || []).map((d) => normalizeHeritageDetail(d)) }
   },
 
@@ -125,13 +135,20 @@ module.exports = {
         markerWrites++
       }
     }
+    let titleBackfills = 0
     for (const h of DEFAULT_SEED_HERITAGE) {
       const exist = await col.where({ markerId: h.markerId }).limit(1).get()
       if (!exist.data || exist.data.length === 0) {
         await col.add(buildHeritageDoc(h, now))
         heritageWrites++
+      } else {
+        const doc = exist.data[0]
+        if (!doc.title || doc.title.length === 0) {
+          await col.doc(doc._id).update({ title: h.title, updatedAt: now })
+          titleBackfills++
+        }
       }
     }
-    return { errCode: 0, errMsg: '种子同步完成', data: { markerWrites, heritageWrites } }
+    return { errCode: 0, errMsg: '种子同步完成', data: { markerWrites, heritageWrites, titleBackfills } }
   }
 }
