@@ -1,6 +1,21 @@
 <template>
   <view class="page">
 
+    <!-- 搜索框 -->
+    <view class="search-bar">
+      <input
+        class="search-input"
+        v-model="keyword"
+        type="text"
+        placeholder="搜索非遗名称或传承人"
+        confirm-type="search"
+        @confirm="onSearchConfirm"
+      />
+      <view v-if="keyword.length > 0" class="search-clear" @click="clearSearch">
+        <text class="search-clear-text">清除</text>
+      </view>
+    </view>
+
     <!-- 分类筛选标签栏（§23：horizontal scroll-view 作为 vertical list 的 sibling，不嵌套） -->
     <scroll-view class="tab-bar" scroll-x direction="horizontal" :show-scrollbar="false">
       <view class="tab-inner">
@@ -50,6 +65,7 @@
 
         <!-- 右侧内容 -->
         <view class="card-body">
+          <text v-if="item.title.length > 0" class="card-title">{{ item.title }}</text>
           <view class="cat-badge">
             <text class="cat-badge-text">{{ item.category }}</text>
           </view>
@@ -75,6 +91,7 @@ import { fetchHeritageList } from '@/utils/heritageCloud'
 const categories: string[] = ['全部', '传统技艺', '民俗', '曲艺', '传统音乐', '传统舞蹈', '传统美术', '传统医药', '民间文学', '传统体育', '传统戏剧']
 
 const activeCategory = ref<string>('')
+const keyword = ref<string>('')
 const items = ref<HeritageListItem[]>([])
 const loading = ref<boolean>(true)
 let pageOffset: number = 0
@@ -86,7 +103,7 @@ async function loadList(reset: boolean): Promise<void> {
     items.value = [] as HeritageListItem[]
   }
   loading.value = true
-  const result = await fetchHeritageList(activeCategory.value, pageOffset, 20)
+  const result = await fetchHeritageList(activeCategory.value, keyword.value, pageOffset, 20)
   if (reset) {
     items.value = result
   } else {
@@ -112,6 +129,15 @@ function selectCategory(cat: string): void {
   loadList(true)
 }
 
+function onSearchConfirm(): void {
+  loadList(true)
+}
+
+function clearSearch(): void {
+  keyword.value = ''
+  loadList(true)
+}
+
 function openDetail(markerId: number): void {
   uni.navigateTo({ url: '/pages/heritage-detail/heritage-detail?markerId=' + markerId.toString() })
 }
@@ -131,6 +157,12 @@ onReachBottom((): void => {
 
 <style>
 .page { flex: 1; width: 750rpx; background-color: #f5f7f6; display: flex; flex-direction: column; }
+
+/* 搜索框 */
+.search-bar { width: 750rpx; flex-shrink: 0; background-color: #ffffff; padding: 16rpx 24rpx; display: flex; flex-direction: row; align-items: center; }
+.search-input { flex: 1; height: 64rpx; background-color: #f0f2f5; border-radius: 999rpx; padding: 0 28rpx; font-size: 26rpx; color: #1a1a1a; }
+.search-clear { padding: 0 16rpx 0 20rpx; }
+.search-clear-text { font-size: 24rpx; color: #1a73e8; }
 
 /* 分类标签栏 */
 .tab-bar { width: 750rpx; flex-shrink: 0; background-color: #ffffff; border-bottom-width: 1rpx; border-bottom-style: solid; border-bottom-color: #eaeaea; }
@@ -163,6 +195,9 @@ onReachBottom((): void => {
 
 /* 卡片主体 */
 .card-body { flex: 1; margin-left: 20rpx; display: flex; flex-direction: column; }
+
+/* 卡片标题 */
+.card-title { font-size: 28rpx; font-weight: 600; color: #1a1a1a; margin-bottom: 8rpx; }
 
 /* 分类徽章（与 heritage-detail.uvue 统一样式） */
 .cat-badge { padding: 6rpx 20rpx; border-radius: 24rpx; background-color: #e8f0fe; align-self: flex-start; }
